@@ -1,7 +1,44 @@
-.venv/
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Vim editor
+*.sw[op]
+
+# Other Python files and directories
+*.py[cod]
 __pycache__/
-*.pyc
-.env
-dist/
+
+# Distribution building
 build/
-*.sqlite*
+dist/
+eggs/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+*.bundle
+
+# Venv files and directories
+## in case of an environment in root directory
+pyvenv.cfg
+Include/
+Lib/
+Scripts/
+app/__pycache__/
+## in case of environment in subdirectories
+.env
+.venv
+env/
+venv/
+.vscode/
+
+# MS Office temporary documents
+~$*
+
+# MacOS files
+.DS_Store
