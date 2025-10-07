@@ -1,138 +1,37 @@
-# 📊 Smart Expense Tracker
+!! Change this document for your own project by removing the placeholder text, adding your own text, adding helpful sections etc. etc. !!
 
-Ein Web-App-Prototyp (FastAPI + Uvicorn), um persönliche Ausgaben anhand von Quittungen zu erfassen.  
-Nutzer können Belege hochladen, die später per OCR verarbeitet und automatisch kategorisiert werden.  
-Dies ist ein Semesterprojekt im Rahmen der FFHS.
+# <Project Title>
 
----
+In a few sentences describe what your project is trying to solve.
 
-## 🚀 Features (MVP)
-- FastAPI-Backend mit automatischer Swagger-Dokumentation
-- Healthcheck-Endpunkt (`/health`)
-- Upload-Endpunkt (Basisfunktion)
-- Lokaler Start mit virtueller Umgebung (`.venv`)
-- Deployment-fähig via Docker
+You can use [GitHub markdown
+notation](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)
+or [GitLab markdown notation](https://docs.gitlab.com/ee/user/markdown.html) in
+case you are using one of these platforms. This will give a nicely formatted
+documentation when looking at your project online.
 
----
+## Get started
 
-## 📂 Projektstruktur
+Explain what the user has to type to get started with your solution. Which one
+is the main Python file? In the simplest case, this could look something like
+this:
 
-```
-groupwork/
- ├─ app/
- │   ├─ __init__.py
- │   └─ main.py
- ├─ tests/
- ├─ requirements.txt
- ├─ Dockerfile
- ├─ README.md
- └─ .venv/                # (lokal erstellt, nicht im Repo)
-```
+``
+    python main.py
+``
 
----
+In other cases the user might first have to install some project dependencies
+first has to run something like this (a sample requirements.txt file is also
+included in the project template):
 
-## 🖥️ Voraussetzungen
-- [Python 3.11+](https://www.python.org/downloads/)
-- Git
-- (Optional) Docker
+``
+    pip install -r requirements.txt
+``
 
----
+## Understanding the sources
 
-## ⚙️ Setup & Installation
-
-### 1. Repository klonen
-```bash
-git clone <REPO-URL> groupwork
-cd groupwork
-```
-
-### 2. Virtuelle Umgebung erstellen
-```bash
-python -m venv .venv
-```
-
-Falls mehrere Python-Versionen installiert sind:
-```bash
-py -3.11 -m venv .venv
-```
-
-### 3. Aktivieren der venv
-
-**Windows (PowerShell):**
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser   # einmalig nötig
-.\.venv\Scripts\Activate.ps1
-```
-
-**macOS/Linux (Bash/Zsh):**
-```bash
-source .venv/bin/activate
-```
-
-### 4. Abhängigkeiten installieren
-```bash
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
----
-
-## ▶️ Starten der App
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Falls `uvicorn` nicht gefunden wird:
-```bash
-python -m uvicorn app.main:app --reload
-```
-
----
-
-## 🌐 Test im Browser
-
-- Root: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
-  → `{"message":"Hello from Smart Expense Tracker"}`  
-
-- Healthcheck: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)  
-  → `{"status":"ok"}`  
-
-- API-Dokumentation (Swagger-UI): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
-
----
-
-## 🧪 Tests
-
-```bash
-pytest
-```
-
----
-
-## 🐳 Optional: Start mit Docker
-
-```bash
-docker build -t expense-tracker:dev .
-docker run -p 8080:8080 expense-tracker:dev
-```
-
-Aufruf: [http://127.0.0.1:8080](http://127.0.0.1:8080)
-
----
-
-## 📌 Nützliche Tipps
-- Wenn `ModuleNotFoundError: No module named 'app'`:  
-  → sicherstellen, dass `app/` im Projektordner liegt und `__init__.py` enthält.  
-- Bei Windows-Problemen mit `pip`: immer `python -m pip ...` statt nur `pip`.  
-- In VS Code: Python-Interpreter auf `.venv` setzen (`Python: Select Interpreter`).  
-
----
-
-## 👥 Team & Verantwortlichkeiten
-- **Infrastruktur & Deployment:** Person A  
-- **Upload & OCR:** Person B  
-- **Parsing & Datenextraktion:** Person C  
-- **Machine Learning:** Person D  
-- **Reporting & Visualisierung:** Person E  
-- **UI, Testing, Dokumentation:** alle gemeinsam
+Explain any high level concepts that you are using in your software. What were
+your ideas for creating the whole software? What might not be apparent from the
+sources alone? You can also add diagrams, photos of whiteboards or flipcharts
+or even crudly drawing napkin sketches of the core concepts of your software
+when they are readable and helpful for understanding.
