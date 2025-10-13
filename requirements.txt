@@ -6,19 +6,10 @@
 # Every dependency must be on its own line. Note that the '#'-character is used
 # as comment character.
 #
+# python -m pip install -r requirements.txt
 
-# For programming a game with pygame, you want to uncomment the following line:
-#pygame==2.5.2
-
-# If you want to try to package your project for easier distribution, uncomment
-# the following line:
-#pyinstaller==6.1.0
-
-black==24.8.0
-flake8==7.1.1
-pep8-naming==0.14.1
 fastapi
 uvicorn[standard]
 python-multipart
-pydantic
-
+python-dotenv
+pymssql
