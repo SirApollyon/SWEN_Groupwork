@@ -3,9 +3,8 @@ IF SCHEMA_ID('app') IS NULL
     EXEC('CREATE SCHEMA app');
 GO
 
-/* =========================
-   USERS
-   ========================= */
+-- USERS
+
 IF OBJECT_ID('app.users') IS NULL
 BEGIN
     CREATE TABLE app.users (
@@ -18,9 +17,8 @@ BEGIN
 END
 GO
 
-/* =========================
-   ACCOUNTS
-   ========================= */
+-- ACCOUNTS
+
 IF OBJECT_ID('app.accounts') IS NULL
 BEGIN
     CREATE TABLE app.accounts (
@@ -40,9 +38,8 @@ BEGIN
 END
 GO
 
-/* =========================
-   CATEGORIES
-   ========================= */
+-- CATEGORIES
+
 IF OBJECT_ID('app.categories') IS NULL
 BEGIN
     CREATE TABLE app.categories (
@@ -63,9 +60,8 @@ BEGIN
 END
 GO
 
-/* =========================
-   TRANSACTIONS (ohne user_id)
-   ========================= */
+-- TRANSACTIONS
+
 IF OBJECT_ID('app.transactions') IS NULL
 BEGIN
     CREATE TABLE app.transactions (
@@ -98,9 +94,9 @@ BEGIN
 END
 GO
 
-/* =========================
-   BUDGETS (ohne user_id)
-   ========================= */
+
+-- BUDGETS
+
 IF OBJECT_ID('app.budgets') IS NULL
 BEGIN
     CREATE TABLE app.budgets (
