@@ -121,3 +121,50 @@ BEGIN
     CREATE INDEX IX_budgets_cat_month ON app.budgets(category_id, [month]);
 END
 GO
+
+-- Rechnungen 
+
+IF OBJECT_ID('app.receipts') IS NULL
+BEGIN
+    CREATE TABLE app.receipts (
+        receipt_id INT IDENTITY(1,1) PRIMARY KEY,
+        user_id INT NOT NULL,
+        receipt_image VARBINARY(MAX) NOT NULL,
+        upload_date DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        status_id INT NOT NULL DEFAULT 1,
+        extracted_text NVARCHAR(MAX) NULL,
+        error_message NVARCHAR(MAX) NULL,
+
+        issuer_name NVARCHAR(255) NULL,
+        issuer_street NVARCHAR(255) NULL,
+        issuer_city NVARCHAR(100) NULL,
+        issuer_postal_code NVARCHAR(20) NULL,
+        issuer_country NVARCHAR(100) NULL,
+        issuer_latitude DECIMAL(9,6) NULL,
+        issuer_longitude DECIMAL(9,6) NULL,
+
+        CONSTRAINT FK_receipts_users FOREIGN KEY (user_id) REFERENCES app.users(user_id),
+        CONSTRAINT FK_receipts_status FOREIGN KEY (status_id) REFERENCES app.receipt_status(status_id)
+    );
+
+    CREATE INDEX IX_receipts_user ON app.receipts(user_id);
+    CREATE INDEX IX_receipts_status ON app.receipts(status_id);
+END
+GO
+
+-- Status-Tabelle für Rechnungen
+
+IF OBJECT_ID('app.receipt_status') IS NULL
+BEGIN
+    CREATE TABLE app.receipt_status (
+        status_id INT PRIMARY KEY, -- Eindeutige ID für den Status
+        status_name NVARCHAR(50) NOT NULL UNIQUE -- Name des Status (z. B. 'pending', 'processed', 'error')
+    );
+
+    -- Initiale Statuswerte einfügen
+    INSERT INTO app.receipt_status (status_id, status_name) VALUES
+    (1, 'pending'),
+    (2, 'processed'),
+    (3, 'error');
+END
+GO
