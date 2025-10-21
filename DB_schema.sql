@@ -122,6 +122,23 @@ BEGIN
 END
 GO
 
+-- Status-Tabelle für Rechnungen
+
+IF OBJECT_ID('app.receipt_status') IS NULL
+BEGIN
+    CREATE TABLE app.receipt_status (
+        status_id INT PRIMARY KEY, -- Eindeutige ID für den Status
+        status_name NVARCHAR(50) NOT NULL UNIQUE -- Name des Status (z. B. 'pending', 'processed', 'error')
+    );
+
+    -- Initiale Statuswerte einfügen
+    INSERT INTO app.receipt_status (status_id, status_name) VALUES
+    (1, 'pending'),
+    (2, 'processed'),
+    (3, 'error');
+END
+GO
+
 -- Rechnungen 
 
 IF OBJECT_ID('app.receipts') IS NULL
