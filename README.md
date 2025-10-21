@@ -1,8 +1,8 @@
 # Smart Expense Tracker
 
-Ein Web-App-Prototyp (FastAPI + Uvicorn), um persönliche Ausgaben anhand von Quittungen zu erfassen.  
-Nutzer können Belege hochladen, die später per OCR verarbeitet und automatisch kategorisiert werden.  
-Dies ist ein Semesterprojekt im Rahmen der FFHS.
+A prototype web application built with NiceGUI + FastAPI for capturing and managing personal expenses based on uploaded receipts.
+Users can upload receipt images (JPG, PNG, HEIC, etc.), which are stored in a database and later processed via OCR.
+This project is part of the FFHS/HSLU/OST semester module SWEN.
 
 ---
 
@@ -13,20 +13,31 @@ Dies ist ein Semesterprojekt im Rahmen der FFHS.
 - Lokaler Start mit virtueller Umgebung (`.venv`)
 - Deployment-fähig via Docker
 
+- Unified NiceGUI + FastAPI backend
+- Upload interface (browser + mobile camera)
+- Direct file storage in Azure SQL (VARBINARY(MAX))
+- User-based assignment (user_id, status_id)
+- Environment-based DB configuration (.env)
+- Local run with virtual environment (venv)
+- API endpoint /api/upload for programmatic access
+
 ---
 
 ## Projektstruktur
 
 ```text
-groupwork/
+SWEN_Groupwork/
  ├─ app/
  │   ├─ __init__.py
- │   └─ main.py
- ├─ tests/
+ │   ├─ main.py          # NiceGUI + FastAPI entry point
+ │   ├─ db.py            # DB connection + insert logic
+ │   ├─ init_db.py       # schema setup
+ │   └─ db_test.py
+ ├─ .env                 # DB credentials (not committed)
  ├─ requirements.txt
- ├─ Dockerfile
+ ├─ MANUAL.md
  ├─ README.md
- └─ .venv/                # (lokal erstellt, nicht im Repo)
+ └─ venv/                # local virtual environment
 ```
 
 ---
@@ -36,17 +47,17 @@ groupwork/
 ### Voraussetzungen
 - [Python 3.11+](https://www.python.org/downloads/)
 - Git
+- Azure SQL database access
 - (Optional) Docker
 
 ### Setup & Installation
 
-#### 1. Repository klonen
+#### 1. Clone repository
 ```bash
-git clone <REPO-URL> groupwork
-cd groupwork
+git clone https://github.com/SirApollyon/SWEN_Groupwork.git
+cd SWEN_Groupwork
 ```
-
-#### 2. Virtuelle Umgebung erstellen
+#### 2. Create virtual environment
 ```bash
 python -m venv .venv
 ```
@@ -56,7 +67,7 @@ Falls mehrere Python-Versionen installiert sind:
 py -3.11 -m venv .venv
 ```
 
-#### 3. Aktivieren der venv
+#### 3. Activation of venv
 
 **Windows (PowerShell):**
 ```powershell
@@ -69,24 +80,24 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser   # einmalig nötig
 source .venv/bin/activate
 ```
 
-#### 4. Abhängigkeiten installieren
+#### 4. Install dependencies
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### Starten der App
+### Run the App
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 
 Falls `uvicorn` nicht gefunden wird:
 ```bash
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 ### Test im Browser
-- Root: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
+- Root (NiceGUI interface): [http://127.0.0.1:8000](http://127.0.0.1:8000)  
   → `{"message":"Hello from Smart Expense Tracker"}`
 - Healthcheck: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)  
   → `{"status":"ok"}`
@@ -111,6 +122,11 @@ Aufruf: [http://127.0.0.1:8080](http://127.0.0.1:8080)
 
 ---
 
+### API endpoints
+- # Endpoint  Method  Description
+- # /api/upload POST  Uploads a receipt image for a given user_id.
+- # /docs GET Auto-generated FastAPI docs.
+
 ## Team & Verantwortlichkeiten
 - **Infrastruktur & Deployment:** Person A
 - **Upload & OCR:** Person B
@@ -119,6 +135,25 @@ Aufruf: [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - **Reporting & Visualisierung:** Person E
 - **UI, Testing, Dokumentation:** alle gemeinsam
 
+---
+## Database setup
+- # 1.Configure your .env file:
+```text
+AZURE_SQL_SERVER=bfh-server-01.database.windows.net
+AZURE_SQL_DB=smart_expense_tracker
+AZURE_SQL_USER=<your_user>
+AZURE_SQL_PASSWORD=<your_password>
+AZURE_SQL_PORT=1433
+```
+-  # 2.Run schema initialization once:
+```bash
+python app/init_db.py
+```
+
+- # 3.(Optional) Insert a test user:
+```sql
+INSERT INTO app.users (name, email) VALUES (N'Test', N'test@example.com');
+```
 ---
 
 ## Architekturüberblick
