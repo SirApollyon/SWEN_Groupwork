@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from nicegui import ui
 from app.db import insert_receipt
 import httpx
+import os
 
 # 1. Create FastAPI app (used by uvicorn)
 app = FastAPI(title='Smart Expense Tracker')
@@ -17,9 +18,9 @@ async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
     """Receives uploaded file and stores it in the database."""
     content = await file.read()
     if not content:
-        raise HTTPException(400, 'Empty file')
+        raise HTTPException(status_code=400, detail='Empty file')
     if len(content) > MAX_BYTES:
-        raise HTTPException(413, 'File too large (>20MB)')
+        raise HTTPException(status_code=413, detail='File too large (>20MB)')
     try:
         result = insert_receipt(user_id, content)
         return {
@@ -29,7 +30,7 @@ async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
             'size_bytes': len(content),
         }
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # 4. NiceGUI Frontend
@@ -64,10 +65,15 @@ def index_page():
             if user_id < 1:
                 output.set_content('Invalid User ID.')
                 return
+
+            # Dynamische Basis-URL: lokal oder Render
+            BASE_URL = os.getenv('BASE_URL', 'http://127.0.0.1:8000')
+
             data = {'user_id': str(user_id)}
             files = {'file': (file_dict['name'], file_dict['content'])}
+
             async with httpx.AsyncClient() as client:
-                r = await client.post('http://127.0.0.1:8000/api/upload', data=data, files=files)
+                r = await client.post(f'{BASE_URL}/api/upload', data=data, files=files)
             output.set_content(r.text)
         except Exception as e:
             output.set_content(f'Error: {e!s}')
@@ -90,4 +96,4 @@ def index_page():
 
 # 5. Do not call ui.run() here
 # FastAPI will serve everything when running with:
-# uvicorn app.main:app --reload
+# uvicorn app.main:app --reload --port 8000
