@@ -1,4 +1,4 @@
-# 📊 Smart Expense Tracker
+# Smart Expense Tracker
 
 Ein Web-App-Prototyp (FastAPI + Uvicorn), um persönliche Ausgaben anhand von Quittungen zu erfassen.  
 Nutzer können Belege hochladen, die später per OCR verarbeitet und automatisch kategorisiert werden.  
@@ -6,7 +6,7 @@ Dies ist ein Semesterprojekt im Rahmen der FFHS.
 
 ---
 
-## 🚀 Features (MVP)
+## Features (MVP)
 - FastAPI-Backend mit automatischer Swagger-Dokumentation
 - Healthcheck-Endpunkt (`/health`)
 - Upload-Endpunkt (Basisfunktion)
@@ -15,7 +15,7 @@ Dies ist ein Semesterprojekt im Rahmen der FFHS.
 
 ---
 
-## 📂 Projektstruktur
+## Projektstruktur
 
 ```text
 groupwork/
@@ -75,7 +75,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### ▶️ Starten der App
+### Starten der App
 ```bash
 uvicorn app.main:app --reload
 ```
@@ -85,33 +85,33 @@ Falls `uvicorn` nicht gefunden wird:
 python -m uvicorn app.main:app --reload
 ```
 
-### 🌐 Test im Browser
+### Test im Browser
 - Root: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
   → `{"message":"Hello from Smart Expense Tracker"}`
 - Healthcheck: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)  
   → `{"status":"ok"}`
 - API-Dokumentation (Swagger-UI): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-### 🧪 Tests
+### Tests
 ```bash
 pytest
 ```
 
-### 🐳 Optional: Start mit Docker
+### Optional: Start mit Docker
 ```bash
 docker build -t expense-tracker:dev .
 docker run -p 8080:8080 expense-tracker:dev
 ```
 Aufruf: [http://127.0.0.1:8080](http://127.0.0.1:8080)
 
-### 📌 Nützliche Tipps
+### Nützliche Tipps
 - Wenn `ModuleNotFoundError: No module named 'app'`: sicherstellen, dass `app/` im Projektordner liegt und `__init__.py` enthält.
 - Bei Windows-Problemen mit `pip`: immer `python -m pip ...` statt nur `pip` verwenden.
 - In VS Code: Python-Interpreter auf `.venv` setzen (`Python: Select Interpreter`).
 
 ---
 
-## 👥 Team & Verantwortlichkeiten
+## Team & Verantwortlichkeiten
 - **Infrastruktur & Deployment:** Person A
 - **Upload & OCR:** Person B
 - **Parsing & Datenextraktion:** Person C
