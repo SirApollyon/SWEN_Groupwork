@@ -33,12 +33,12 @@ groupwork/
 
 ## Schnellstart
 
-### 🖥️ Voraussetzungen
+### Voraussetzungen
 - [Python 3.11+](https://www.python.org/downloads/)
 - Git
 - (Optional) Docker
 
-### ⚙️ Setup & Installation
+### Setup & Installation
 
 #### 1. Repository klonen
 ```bash
