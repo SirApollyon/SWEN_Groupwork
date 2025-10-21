@@ -10,6 +10,8 @@
 
 fastapi
 uvicorn[standard]
+nicegui
+httpx
 python-multipart
 python-dotenv
 pymssql
