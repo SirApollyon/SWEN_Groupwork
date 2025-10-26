@@ -16,5 +16,5 @@ python-multipart
 python-dotenv
 pymssql
 Pillow
-google-generativeai
+google-genai
 geopy
