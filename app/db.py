@@ -24,7 +24,9 @@ SERVER = os.getenv("AZURE_SQL_SERVER")
 DATABASE = os.getenv("AZURE_SQL_DB")
 USER = os.getenv("AZURE_SQL_USER")
 PWD = os.getenv("AZURE_SQL_PASSWORD")
-PORT = int(os.getenv("AZURE_SQL_PORT", "1433")) # Standard-Port 1433, falls nicht anders angegeben
+PORT = int(
+    os.getenv("AZURE_SQL_PORT", "1433")
+)  # Standard-Port 1433, falls nicht anders angegeben
 
 # Ein Dictionary, das alle Verbindungsparameter sammelt.
 # Das macht den Code sauberer, da wir nicht jeden Parameter einzeln übergeben müssen.
@@ -36,7 +38,7 @@ CONNECT_KW = dict(
     port=PORT,
     timeout=30,
     login_timeout=30,
-    tds_version="7.4", # Wichtig für die Kompatibilität mit Azure SQL
+    tds_version="7.4",  # Wichtig für die Kompatibilität mit Azure SQL
 )
 
 
@@ -53,7 +55,9 @@ def insert_receipt(user_id: int, content: bytes):
         wie receipt_id, upload_date und status_id.
     """
     if not content:
-        raise ValueError("Die hochgeladene Datei ist leer und kann nicht gespeichert werden.")
+        raise ValueError(
+            "Die hochgeladene Datei ist leer und kann nicht gespeichert werden."
+        )
 
     # 'with' stellt sicher, dass die Verbindung zur Datenbank automatisch geschlossen wird,
     # auch wenn Fehler auftreten.
@@ -78,17 +82,22 @@ def insert_receipt(user_id: int, content: bytes):
                 OUTPUT INSERTED.receipt_id, INSERTED.upload_date, INSERTED.status_id
                 VALUES (%s, %s)
                 """,
-                (user_id, content),  # Die Parameter werden sicher eingefügt, um SQL-Injection zu verhindern.
+                (
+                    user_id,
+                    content,
+                ),  # Die Parameter werden sicher eingefügt, um SQL-Injection zu verhindern.
             )
             row = cur.fetchone()  # Das Ergebnis der 'OUTPUT'-Klausel abrufen.
-            
+
             # 'commit()' speichert die Änderungen dauerhaft in der Datenbank.
             conn.commit()
 
             # Die zurückgegebenen Daten für die weitere Verwendung vorbereiten.
             return {
                 "receipt_id": row["receipt_id"],
-                "upload_date": row["upload_date"].isoformat(), # Datum in einen Standard-String umwandeln
+                "upload_date": row[
+                    "upload_date"
+                ].isoformat(),  # Datum in einen Standard-String umwandeln
                 "status_id": row["status_id"],
             }
 
@@ -184,7 +193,7 @@ def get_primary_account_id(user_id: int) -> int:
                 return row["account_id"]
 
             # Wenn kein Konto gefunden wurde, ein neues Standardkonto anlegen.
-            account_name = f'{AUTO_ACCOUNT_NAME} {datetime.utcnow():%Y%m%d%H%M%S}'
+            account_name = f"{AUTO_ACCOUNT_NAME} {datetime.utcnow():%Y%m%d%H%M%S}"
             cur.execute(
                 """
                 INSERT INTO app.accounts (user_id, account_name, balance, currency)
@@ -195,10 +204,10 @@ def get_primary_account_id(user_id: int) -> int:
             )
             new_row = cur.fetchone()
             conn.commit()
-            
+
             if not new_row:
                 raise RuntimeError("Das Standardkonto konnte nicht erstellt werden.")
-            
+
             return new_row["account_id"]
 
 
@@ -249,7 +258,9 @@ def list_user_categories(user_id: int) -> list[dict]:
                 """,
                 (user_id,),
             )
-            return cur.fetchall() or [] # Gibt eine leere Liste zurück, wenn keine Kategorien gefunden wurden.
+            return (
+                cur.fetchall() or []
+            )  # Gibt eine leere Liste zurück, wenn keine Kategorien gefunden wurden.
 
 
 def update_receipt_issuer(
@@ -355,21 +366,6 @@ def insert_transaction_record(
             }
 
 
-def test_connection():
-    """
-    Testet die Verbindung zur Datenbank. Nützlich für die Fehlersuche.
-    Diese Funktion kann lokal ausgeführt werden, um zu prüfen, ob die
-    Verbindungseinstellungen in der .env-Datei korrekt sind.
-    """
-    try:
-        with pymssql.connect(**CONNECT_KW) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT GETDATE()") # Einfache Abfrage an die DB
-                print("✅ Datenbankverbindung erfolgreich hergestellt:", cur.fetchone()[0])
-    except Exception as e:
-        print("❌ Fehler bei der Datenbankverbindung:", e)
-
-
 def fetch_db_heartbeat() -> dict:
     """
     Liest Diagnosedaten (Servername, Datenbankname, Serverzeit) aus der Datenbank.
@@ -390,5 +386,9 @@ def fetch_db_heartbeat() -> dict:
             return {
                 "server": row.get("server_name"),
                 "database": row.get("database_name"),
-                "server_time": server_time.isoformat() if hasattr(server_time, "isoformat") else None,
+                "server_time": (
+                    server_time.isoformat()
+                    if hasattr(server_time, "isoformat")
+                    else None
+                ),
             }

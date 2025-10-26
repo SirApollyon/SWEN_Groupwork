@@ -6,6 +6,10 @@ RUN apt-get update && \
         build-essential \
         freetds-dev \
         freetds-bin \
+        libjpeg62-turbo-dev \
+        zlib1g-dev \
+        libtiff5 \
+        libopenjp2-7 \
         tesseract-ocr \
         tesseract-ocr-deu \
         libtesseract-dev && \
