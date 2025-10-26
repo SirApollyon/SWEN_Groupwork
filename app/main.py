@@ -12,7 +12,7 @@ import os
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from nicegui import ui
-from app.db import insert_receipt, fetch_db_heartbeat, SERVER  # DB-Helfer
+from app.db import insert_receipt  # DB-Helfer
 from app.receipt_analysis import analyze_receipt  # Funktion zur Analyse der Belege
 
 # 1. Erstellen der FastAPI-App
@@ -108,18 +108,6 @@ async def api_analyze_receipt(receipt_id: int, user_id: int | None = None):
     except Exception as e:
         # Allgemeine Fehlerbehandlung
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/db/health")
-async def api_db_healthcheck():
-    """
-    Führt eine einfache Abfrage gegen die Datenbank aus, um die Konnektivität zu prüfen.
-    """
-    try:
-        heartbeat = await asyncio.to_thread(fetch_db_heartbeat)
-        return {"ok": True, "details": heartbeat, "SERVER": SERVER}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=str(e))
 
 
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
