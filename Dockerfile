@@ -8,7 +8,7 @@ RUN apt-get update && \
         freetds-bin \
         libjpeg62-turbo-dev \
         zlib1g-dev \
-        libtiff5 \
+        libtiff6 \
         libopenjp2-7 \
         tesseract-ocr \
         tesseract-ocr-deu \
