@@ -7,6 +7,7 @@ Sie verwendet das FastAPI-Framework für die API-Endpunkte und NiceGUI für die 
 """
 
 # Importieren der notwendigen Bibliotheken
+import asyncio
 import os
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -75,8 +76,10 @@ async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
         # Inhalt der hochgeladenen Datei lesen
         content = await file.read()
         
-        # Datei verarbeiten und speichern
-        result = process_receipt_upload(user_id, content, file.filename)
+        # Datei verarbeiten und speichern (blockierenden DB-Zugriff in Thread auslagern)
+        result = await asyncio.to_thread(
+            process_receipt_upload, user_id, content, file.filename
+        )
         
         # Analyse des gespeicherten Belegs anstoßen
         analysis = await analyze_receipt(result["receipt_id"], user_id)
@@ -186,8 +189,11 @@ def index_page():
 
             # Schritt 1: Datei verarbeiten und in der Datenbank speichern
             status_label.set_content("Beleg wird hochgeladen und gespeichert...")
-            upload_result = process_receipt_upload(
-                user_id, selected["content"], selected["name"]
+            upload_result = await asyncio.to_thread(
+                process_receipt_upload,
+                user_id,
+                selected["content"],
+                selected["name"],
             )
             
             # Schritt 2: Beleg analysieren

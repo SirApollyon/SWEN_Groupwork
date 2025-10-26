@@ -1,170 +1,213 @@
 # Smart Expense Tracker
 
-A prototype web application built with NiceGUI + FastAPI for capturing and managing personal expenses based on uploaded receipts.
-Users can upload receipt images (JPG, PNG, HEIC, etc.), which are stored in a database and later processed via OCR.
-This project is part of the FFHS/HSLU/OST semester module SWEN.
+Smart Expense Tracker is a proof-of-concept web application that combines NiceGUI and FastAPI to capture, store, and analyze receipt images. Receipts are uploaded through a web interface or REST API, persisted in Azure SQL, and enriched via Google GenAI plus optional geocoding. The project was created for the SWEN semester module (FFHS/HSLU/OST) and is optimized for quick local runs as well as container deployments.
 
 ---
 
-## Features (MVP)
-- FastAPI-Backend mit automatischer Swagger-Dokumentation
-- Healthcheck-Endpunkt (`/health`)
-- Upload-Endpunkt (Basisfunktion)
-- Lokaler Start mit virtueller Umgebung (`.venv`)
-- Deployment-fähig via Docker
-
-- Unified NiceGUI + FastAPI backend
-- Upload interface (browser + mobile camera)
-- Direct file storage in Azure SQL (VARBINARY(MAX))
-- User-based assignment (user_id, status_id)
-- Environment-based DB configuration (.env)
-- Local run with virtual environment (venv)
-- API endpoint /api/upload for programmatic access
+## Highlights
+- Single FastAPI application that hosts both the JSON API and the NiceGUI front end
+- Dual upload paths (drag & drop file picker and mobile camera capture)
+- Receipt storage in Azure SQL including user binding, status tracking, and binary payload
+- Automated analysis pipeline powered by Google GenAI and geopy for issuer enrichment
+- Ready-to-use Dockerfile and Cloud Run configuration for container deployments (live at https://smart-expense-tracker-530070868085.europe-west8.run.app)
+- Health check, Swagger UI, and pytest-based smoke tests for quick verification
 
 ---
 
-## Projektstruktur
+## System Overview
+
+```
+[Browser / Mobile] --(NiceGUI)--> [/]
+        |                               \
+        |                                -> FastAPI (uvicorn)
+        |                                      |
+[API Clients] --------(REST)-------------------+
+                                               |
+                                               v
+                                        Azure SQL DB
+                                               |
+                                               v
+                                  ReceiptAnalyzer (Google GenAI + geopy)
+```
+
+1. Users upload an image via the NiceGUI page or `POST /api/upload`.
+2. The backend validates file size, stores the binary in Azure SQL, and records metadata.
+3. `ReceiptAnalyzer` loads the stored image, calls Google GenAI to extract structured data, and optionally geocodes issuer information.
+4. Results are written back into the database so they can be consumed by downstream services.
+
+---
+
+## Project Structure
 
 ```text
 SWEN_Groupwork/
- ├─ app/
- │   ├─ __init__.py
- │   ├─ main.py          # NiceGUI + FastAPI entry point
- │   ├─ db.py            # DB connection + insert logic
- │   ├─ init_db.py       # schema setup
- │   └─ db_test.py
- ├─ .env                 # DB credentials (not committed)
- ├─ requirements.txt
- ├─ MANUAL.md
- ├─ README.md
- └─ venv/                # local virtual environment
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # NiceGUI + FastAPI entry point
+│   ├── db.py                # DB helpers (insert + queries)
+│   ├── receipt_analysis.py  # Google GenAI based analysis pipeline
+│   ├── manual_analysis.py   # CLI helper for manual checks
+│   ├── init_db.py           # Schema bootstrapper
+│   └── db_test.py
+├── DB_schema.sql
+├── Dockerfile
+├── README.md
+├── MANUAL.md
+├── requirements.txt
+└── render.yaml / .env / etc.
 ```
 
 ---
 
-## Schnellstart
-
-### Voraussetzungen
-- [Python 3.11+](https://www.python.org/downloads/)
+## Prerequisites
+- Python 3.11 or newer
 - Git
-- Azure SQL database access
-- (Optional) Docker
+- Azure SQL database or compatible SQL Server instance
+- Docker (optional, for containerized runs)
+- Google GenAI API access (for automatic receipt analysis)
 
-### Setup & Installation
+---
 
-#### 1. Clone repository
+## Quick Start
+
+### 1. Clone the repository
 ```bash
 git clone https://github.com/SirApollyon/SWEN_Groupwork.git
 cd SWEN_Groupwork
 ```
-#### 2. Create virtual environment
+
+### 2. Create a virtual environment
 ```bash
 python -m venv .venv
 ```
-
-Falls mehrere Python-Versionen installiert sind:
-```bash
+On Windows with multiple Python versions:
+```powershell
 py -3.11 -m venv .venv
 ```
 
-#### 3. Activation of venv
-
-**Windows (PowerShell):**
+### 3. Activate the environment
 ```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser   # einmalig nötig
+# Windows (PowerShell)
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  # once
 .\.venv\Scripts\Activate.ps1
 ```
-
-**macOS/Linux (Bash/Zsh):**
 ```bash
+# macOS / Linux
 source .venv/bin/activate
 ```
 
-#### 4. Install dependencies
+### 4. Install dependencies
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### Run the App
+---
+
+## Configuration (.env)
+
+Create a `.env` file in the project root and fill in your credentials:
+
+| Variable | Description | Example |
+| --- | --- | --- |
+| `AZURE_SQL_SERVER` | Fully qualified SQL Server host | `bfh-server-01.database.windows.net` |
+| `AZURE_SQL_DB` | Database name | `smart_expense_tracker` |
+| `AZURE_SQL_USER` | Login/user name | `my_user` |
+| `AZURE_SQL_PASSWORD` | Password | `super_secret` |
+| `AZURE_SQL_PORT` | TCP port (default 1433) | `1433` |
+| `GOOGLE_API_KEY` | Google GenAI API key for receipt analysis | `ya29...` |
+| `GOOGLE_RECEIPT_MODEL` | Optional override for the GenAI model | `gemma-3-27b-it` |
+| `GEOCODER_USER_AGENT` | Identifier for Nominatim geocoding calls | `receipt-analyzer` |
+
+The backend loads these values through `python-dotenv`, so restarting uvicorn after editing `.env` is enough.
+
+---
+
+## Database Setup
+1. Initialize the schema (creates tables, seed data, etc.):
+   ```bash
+   python app/init_db.py
+   ```
+2. (Optional) Insert a test user so uploads can be associated with a valid `user_id`:
+   ```sql
+   INSERT INTO app.users (name, email) VALUES (N'Test', N'test@example.com');
+   ```
+3. `DB_schema.sql` contains the complete schema if you need to inspect or migrate it manually.
+
+---
+
+## Running the Application
+
+### Local development (auto reload)
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
-
-Falls `uvicorn` nicht gefunden wird:
+If `uvicorn` is not on your PATH:
 ```bash
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Test im Browser
-- Root (NiceGUI interface): [http://127.0.0.1:8000](http://127.0.0.1:8000)  
-  → `{"message":"Hello from Smart Expense Tracker"}`
-- Healthcheck: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)  
-  → `{"status":"ok"}`
-- API-Dokumentation (Swagger-UI): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+### Available endpoints
+- NiceGUI front end: `http://127.0.0.1:8000/` (live deployment: https://smart-expense-tracker-530070868085.europe-west8.run.app)
+- Health check: `http://127.0.0.1:8000/health`
+- Swagger / OpenAPI docs: `http://127.0.0.1:8000/docs` (live docs: https://smart-expense-tracker-530070868085.europe-west8.run.app/docs#/)
 
-### Tests
-```bash
-pytest
-```
+Uploading a file through NiceGUI automatically triggers the full persistence + analysis flow. Using the API allows you to integrate other clients into the same pipeline.
 
-### Optional: Start mit Docker
+---
+
+## Docker Workflow
 ```bash
 docker build -t expense-tracker:dev .
-docker run -p 8080:8080 expense-tracker:dev
+docker run --rm -p 8080:8080 --env-file .env expense-tracker:dev
 ```
-Aufruf: [http://127.0.0.1:8080](http://127.0.0.1:8080)
-
-### Nützliche Tipps
-- Wenn `ModuleNotFoundError: No module named 'app'`: sicherstellen, dass `app/` im Projektordner liegt und `__init__.py` enthält.
-- Bei Windows-Problemen mit `pip`: immer `python -m pip ...` statt nur `pip` verwenden.
-- In VS Code: Python-Interpreter auf `.venv` setzen (`Python: Select Interpreter`).
+Then open `http://127.0.0.1:8080`. The provided `render.yaml` and Dockerfile are compatible with Google Cloud Run; set the `PORT` environment variable accordingly.
 
 ---
 
-### API endpoints
-- # Endpoint  Method  Description
-- # /api/upload POST  Uploads a receipt image for a given user_id.
-- # /docs GET Auto-generated FastAPI docs.
-
-## Team & Verantwortlichkeiten
-- **Infrastruktur & Deployment:** Person A
-- **Upload & OCR:** Person B
-- **Parsing & Datenextraktion:** Person C
-- **Machine Learning:** Person D
-- **Reporting & Visualisierung:** Person E
-- **UI, Testing, Dokumentation:** alle gemeinsam
+## Google Cloud Run Deployment
+- The repository is connected to Google Cloud Run; every push to the default branch triggers a GitHub build & deploy workflow that rebuilds the container and releases it to `https://smart-expense-tracker-530070868085.europe-west8.run.app`.
+- Detailed API docs of the live service are always available at `https://smart-expense-tracker-530070868085.europe-west8.run.app/docs#/`.
+- The deployment uses the same Dockerfile as local runs, so any change validated locally translates directly to Cloud Run once committed.
 
 ---
-## Database setup
-- # 1.Configure your .env file:
-```text
-AZURE_SQL_SERVER=bfh-server-01.database.windows.net
-AZURE_SQL_DB=smart_expense_tracker
-AZURE_SQL_USER=<your_user>
-AZURE_SQL_PASSWORD=<your_password>
-AZURE_SQL_PORT=1433
-```
--  # 2.Run schema initialization once:
+
+## Tests and Tooling
 ```bash
-python app/init_db.py
+python -m pytest
 ```
+Current tests cover the DB helpers; extend them as new features land. For linting/formatting you can plug in `ruff`, `black`, or similar tools via `setup.cfg`.
 
-- # 3.(Optional) Insert a test user:
-```sql
-INSERT INTO app.users (name, email) VALUES (N'Test', N'test@example.com');
-```
 ---
 
-## Architekturüberblick
-Dieses Projekt setzt auf FastAPI als leichtgewichtiges Backend. Geplanter Ablauf:
+## API Reference
 
-```
-[Client] --(POST /upload)--> [FastAPI] --(persist)--> [Storage]
-                                 ↘(queue)--> [OCR Worker] --> [Parser/ML] --> [DB]
-```
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/upload` | Uploads a receipt image for a given `user_id`, stores it, and immediately runs the analyzer. |
+| `POST` | `/api/receipts/{receipt_id}/analyze` | Re-runs the analyzer for an existing receipt (uses optional `user_id`). |
+| `GET` | `/health` | Lightweight readiness check used for monitoring. |
+| `GET` | `/docs` | Swagger UI (FastAPI auto-generated, hosted at https://smart-expense-tracker-530070868085.europe-west8.run.app/docs#/). |
 
-- Upload-Service: Nutzer lädt Bild/PDF eines Belegs hoch, Datei wird gespeichert.
-- OCR-Parsing (geplant): Extraktion von Händler, Datum, Betrag, einzelnen Positionen.
-- Machine Learning (geplant): automatische Kategorisierung von Ausgaben.
-- API-First-Ansatz: alle Endpunkte dokumentiert via Swagger-UI.
+The `/api/upload` endpoint expects `multipart/form-data` with fields `file` (binary) and `user_id` (form value).
+
+---
+
+## Troubleshooting
+- **`ModuleNotFoundError: No module named 'app'`**: ensure you are running commands from the project root and that `.venv` is activated.
+- **`uvicorn` command not found**: run `python -m uvicorn ...` or reinstall dependencies inside the active environment.
+- **Database connection failures**: verify that your IP is allowed to reach Azure SQL and that TLS / firewall settings permit the connection.
+- **Google GenAI errors**: double-check `GOOGLE_API_KEY`, project quotas, and the selected `GOOGLE_RECEIPT_MODEL`.
+- **Large uploads rejected**: files above 20 MB are blocked by the application (see `MAX_BYTES` in `app/main.py`).
+
+---
+
+## Team & Responsibilities
+- **Infrastructure & Deployment**: Person A
+- **Upload Service & OCR pipeline**: Person B
+- **Parsing & Data Extraction**: Person C
+- **Machine Learning Enhancements**: Person D
+- **Reporting & Visualization**: Person E
+- **UI, Testing, Documentation**: Collective responsibility
+
+Feel free to adapt the assignments above to your actual team structure.

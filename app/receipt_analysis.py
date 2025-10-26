@@ -5,16 +5,17 @@ aus Bildern von Belegen zu extrahieren und in einer Datenbank zu speichern.
 """
 
 import asyncio
-import imghdr
 import json
 import os
 from datetime import datetime, date
 from decimal import Decimal
+from io import BytesIO
 from typing import Any, Dict, Optional, Tuple, List
 
 from geopy import geocoders
 from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from google.genai import Client, types
+from PIL import Image, UnidentifiedImageError
 
 # Importiert Datenbank-Funktionen aus einer anderen Datei im Projekt.
 from app.db import (
@@ -298,7 +299,13 @@ class ReceiptAnalyzer:
     def _guess_media_type(data: bytes) -> str:
         """Bestimmt den Medientyp (z.B. 'image/jpeg') des Bildes."""
         # Dies ist wichtig, damit das KI-Modell weiß, wie es die Daten interpretieren soll.
-        fmt = imghdr.what(None, data)
+        try:
+            with Image.open(BytesIO(data)) as img:
+                fmt = (img.format or "").strip().lower()
+        except (UnidentifiedImageError, OSError):
+            fmt = None
+        if fmt == "jpg":
+            fmt = "jpeg"
         return f"image/{fmt}" if fmt else "image/jpeg"
 
     @staticmethod
