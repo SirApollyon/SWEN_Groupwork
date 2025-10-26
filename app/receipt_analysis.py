@@ -22,7 +22,7 @@ from app.db import (
     get_category_id_by_name,
     get_primary_account_id,
     insert_transaction_record,
-    list_user_categories,
+    list_categories,
     load_receipt_image,
     mark_receipt_status,
     update_receipt_issuer,
@@ -81,12 +81,12 @@ class ReceiptAnalyzer:
             if not resolved_user_id:
                 raise ValueError("Beleg ist keinem Benutzer zugeordnet.")
 
-            # 2. Benutzerkategorien abrufen
-            categories = list_user_categories(resolved_user_id)
+            # 2. Verfügbare Kategorien abrufen
+            categories = list_categories()
             if not categories:
                 return self._handle_error(
                     receipt_id,
-                    "Für diesen Benutzer sind keine Kategorien konfiguriert.",
+                    "Es sind keine Kategorien in der Datenbank konfiguriert.",
                     "no_categories",
                 )
 
@@ -147,7 +147,7 @@ class ReceiptAnalyzer:
 
         # IDs für Konto und Kategorie aus der Datenbank holen
         account_id = get_primary_account_id(user_id)
-        category_id = get_category_id_by_name(user_id, category_name)
+        category_id = get_category_id_by_name(category_name)
 
         if category_id is None:
             return self._handle_error(

@@ -211,12 +211,11 @@ def get_primary_account_id(user_id: int) -> int:
             return new_row["account_id"]
 
 
-def get_category_id_by_name(user_id: int, category_name: str) -> int | None:
+def get_category_id_by_name(category_name: str) -> int | None:
     """
     Sucht die ID einer Kategorie anhand ihres Namens. Die Suche ignoriert Groß- und Kleinschreibung.
 
     Args:
-        user_id: Die ID des Benutzers.
         category_name: Der Name der gesuchten Kategorie.
 
     Returns:
@@ -228,20 +227,17 @@ def get_category_id_by_name(user_id: int, category_name: str) -> int | None:
                 """
                 SELECT category_id
                 FROM app.categories
-                WHERE user_id=%s AND LOWER(name)=LOWER(%s)
+                WHERE LOWER(name)=LOWER(%s)
                 """,
-                (user_id, category_name),
+                (category_name,),
             )
             row = cur.fetchone()
             return row["category_id"] if row else None
 
 
-def list_user_categories(user_id: int) -> list[dict]:
+def list_categories() -> list[dict]:
     """
-    Listet alle Kategorien für einen bestimmten Benutzer auf.
-
-    Args:
-        user_id: Die ID des Benutzers.
+    Listet alle verfügbaren Kategorien auf.
 
     Returns:
         Eine Liste von Dictionaries, wobei jedes Dictionary eine Kategorie repräsentiert.
@@ -253,10 +249,8 @@ def list_user_categories(user_id: int) -> list[dict]:
                 """
                 SELECT category_id, name, [type]
                 FROM app.categories
-                WHERE user_id=%s
                 ORDER BY name
                 """,
-                (user_id,),
             )
             return (
                 cur.fetchall() or []

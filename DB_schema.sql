@@ -44,19 +44,14 @@ IF OBJECT_ID('app.categories') IS NULL
 BEGIN
     CREATE TABLE app.categories (
         category_id    INT IDENTITY(1,1) PRIMARY KEY,
-        user_id        INT                 NOT NULL,
         name           NVARCHAR(100)       NOT NULL,
         [type]         NVARCHAR(20)        NOT NULL, -- 'expense' | 'income'
         created_at     DATETIME2           NOT NULL CONSTRAINT DF_categories_created_at DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT FK_categories_user
-            FOREIGN KEY (user_id) REFERENCES app.users(user_id)
-            ON DELETE CASCADE,
         CONSTRAINT CK_categories_type
             CHECK ([type] IN (N'expense', N'income')),
-        CONSTRAINT UQ_categories_user_name UNIQUE (user_id, name, [type])
+        CONSTRAINT UQ_categories_name UNIQUE (name, [type])
     );
 
-    CREATE INDEX IX_categories_user ON app.categories(user_id);
 END
 GO
 
