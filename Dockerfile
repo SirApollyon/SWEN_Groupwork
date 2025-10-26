@@ -23,5 +23,5 @@ COPY . .
 ENV PYTHONUNBUFFERED=1 \
     TESSERACT_CMD=/usr/bin/tesseract
 
-# Run the application using the main script, which handles the server start.
-CMD ["python", "app/main.py"]
+# Run the application as a module so package-relative imports resolve correctly.
+CMD ["python", "-m", "app.main"]
