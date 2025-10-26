@@ -7,6 +7,8 @@ Sie verwendet das FastAPI-Framework für die API-Endpunkte und NiceGUI für die 
 """
 
 # Importieren der notwendigen Bibliotheken
+import os
+import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from nicegui import ui
 from app.db import insert_receipt  # Funktion zum Speichern von Belegen in der Datenbank
@@ -215,8 +217,12 @@ def index_page():
 
 
 # 5. Wichtiger Hinweis zum Ausführen der Anwendung:
-# Die Funktion ui.run() wird hier nicht aufgerufen.
-# FastAPI kümmert sich um das Starten der Anwendung.
-#
-# Um die Anwendung zu starten, führe im Terminal folgenden Befehl aus:
-# uvicorn app.main:app --reload --port 8000
+# Die Funktion ui.run() wird normalerweise nicht direkt aufgerufen, wenn man `uvicorn` vom Terminal startet.
+# Für das Deployment wird der Server jedoch programmatisch gestartet (siehe unten).
+
+if __name__ == "__main__":
+    # Dieser Block wird nur ausgeführt, wenn die Datei direkt mit `python app/main.py` gestartet wird.
+    # Er ist entscheidend für das Deployment auf Plattformen wie Google Cloud Run.
+    # Liest den PORT aus den Umgebungsvariablen, mit 8000 als Standard für die lokale Entwicklung.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

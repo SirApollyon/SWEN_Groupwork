@@ -19,8 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Cloud Run provides PORT; default to 8080 for local use
-ENV PORT=8080 \
-    PYTHONUNBUFFERED=1 \
+# The PORT is now used inside app/main.py
+ENV PYTHONUNBUFFERED=1 \
     TESSERACT_CMD=/usr/bin/tesseract
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run the application using the main script, which handles the server start.
+CMD ["python", "app/main.py"]
