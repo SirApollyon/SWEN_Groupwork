@@ -163,6 +163,13 @@ docker run --rm -p 8080:8080 --env-file .env expense-tracker:dev
 ```
 Then open `http://127.0.0.1:8080`. The provided `render.yaml` and Dockerfile are compatible with Google Cloud Run; set the `PORT` environment variable accordingly.
 
+### Local Docker deployment
+1. **Prepare environment file**: ensure `.env` contains all DB + API keys. Docker uses the same file via `--env-file .env`.
+2. **Build**: `docker build -t expense-tracker:dev .` (rerun after code changes to refresh the image).
+3. **Run locally**: `docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 expense-tracker:dev`. The app inside listens on `$PORT` (defaults to 8000). The `-p` flag maps container port 8080 to your host; adjust if you need a different host port.
+4. **Verify**: open `http://localhost:8080/` for NiceGUI, `http://localhost:8080/docs` for Swagger, or hit `/health`. Use `docker logs <container_id>` if you want to tail the output.
+5. **Stop**: press `Ctrl+C` if running in the foreground, or `docker stop <container_id>` when detached. The `--rm` flag ensures the container is cleaned up automatically.
+
 ---
 
 ## Google Cloud Run Deployment

@@ -12,19 +12,16 @@ import os
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from nicegui import ui
-from app.db import insert_receipt  # Funktion zum Speichern von Belegen in der Datenbank
+from app.db import insert_receipt, fetch_db_heartbeat, SERVER  # DB-Helfer
 from app.receipt_analysis import analyze_receipt  # Funktion zur Analyse der Belege
 
 # 1. Erstellen der FastAPI-App
 # Dies ist die Hauptanwendung, die von einem ASGI-Server wie uvicorn ausgeführt wird.
 app = FastAPI(title="Smart Expense Tracker")
 
-# 2. NiceGUI an die FastAPI-App anbinden
-# Dadurch kann NiceGUI die Benutzeroberfläche innerhalb der FastAPI-Anwendung verwalten.
-ui.run_with(app)
-
 # Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
 MAX_BYTES = 20 * 1024 * 1024
+
 
 def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -> dict:
     """
@@ -37,21 +34,21 @@ def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -
 
     Returns:
         Ein Dictionary mit dem Ergebnis des Speichervorgangs.
-    
+
     Raises:
         ValueError: Wenn die Datei leer ist oder die maximale Größe überschreitet.
     """
     # Überprüfen, ob die Datei leer ist
     if not content:
         raise ValueError("Die hochgeladene Datei ist leer.")
-    
+
     # Überprüfen, ob die Datei zu groß ist
     if len(content) > MAX_BYTES:
         raise ValueError("Die Datei ist zu groß (maximal 20 MB).")
 
     # Beleg in der Datenbank speichern
     db_result = insert_receipt(user_id, content)
-    
+
     # Ergebnis-Dictionary erstellen und zurückgeben
     result = {
         "ok": True,
@@ -60,11 +57,12 @@ def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -
     }
     # Die Ergebnisse aus der Datenbank zum Dictionary hinzufügen
     result.update(db_result)
-    
+
     return result
 
 
 # 3. FastAPI Endpunkte (für API-Aufrufe, z.B. über Swagger UI)
+
 
 @app.post("/api/upload")
 async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
@@ -75,18 +73,18 @@ async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
     try:
         # Inhalt der hochgeladenen Datei lesen
         content = await file.read()
-        
+
         # Datei verarbeiten und speichern (blockierenden DB-Zugriff in Thread auslagern)
         result = await asyncio.to_thread(
             process_receipt_upload, user_id, content, file.filename
         )
-        
+
         # Analyse des gespeicherten Belegs anstoßen
         analysis = await analyze_receipt(result["receipt_id"], user_id)
-        
+
         # Analyseergebnis zum Ergebnis-Dictionary hinzufügen
         result["analysis"] = analysis
-        
+
         return result
     except Exception as e:
         # Bei Fehlern eine HTTP-Fehlermeldung zurückgeben
@@ -112,7 +110,24 @@ async def api_analyze_receipt(receipt_id: int, user_id: int | None = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/db/health")
+async def api_db_healthcheck():
+    """
+    Führt eine einfache Abfrage gegen die Datenbank aus, um die Konnektivität zu prüfen.
+    """
+    try:
+        heartbeat = await asyncio.to_thread(fetch_db_heartbeat)
+        return {"ok": True, "details": heartbeat, "SERVER": SERVER}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+# 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
+ui.run_with(app)
+
+
 # 4. NiceGUI Benutzeroberfläche
+
 
 @ui.page("/")
 def index_page():
@@ -121,13 +136,15 @@ def index_page():
     Diese Funktion wird aufgerufen, wenn ein Benutzer die Seite "/" besucht.
     """
     ui.markdown("# Beleg hochladen")
-    
+
     # Eingabefeld für die Benutzer-ID
     user_input = ui.number(label="Benutzer-ID", value=1, min=1)
     user_input.props('dense outlined style="max-width:200px"')
     user_input.classes("mb-2")
-    
-    ui.markdown("Wähle ein Bild von deinem Computer aus **oder** mache ein Foto mit deiner Kamera.")
+
+    ui.markdown(
+        "Wähle ein Bild von deinem Computer aus **oder** mache ein Foto mit deiner Kamera."
+    )
 
     # Ein Label, um den Status anzuzeigen (z.B. "Upload erfolgreich")
     status_label = ui.markdown("-").classes("mt-4")
@@ -151,9 +168,7 @@ def index_page():
 
     # Upload-Element für Dateien vom Computer
     upload_widget = ui.upload(
-        label="Datei auswählen oder hierher ziehen", 
-        auto_upload=True, 
-        multiple=False
+        label="Datei auswählen oder hierher ziehen", auto_upload=True, multiple=False
     )
     upload_widget.props('accept=".heic,.heif,.jpg,.jpeg,.png,.webp,image/*"')
     upload_widget.classes("max-w-xl")
@@ -162,9 +177,7 @@ def index_page():
 
     # Upload-Element für die Kamera (besonders für Mobilgeräte)
     camera_widget = ui.upload(
-        label="Foto aufnehmen (mobil)", 
-        auto_upload=True, 
-        multiple=False
+        label="Foto aufnehmen (mobil)", auto_upload=True, multiple=False
     )
     camera_widget.props('accept="image/*" capture=environment')
     camera_widget.classes("max-w-xl")
@@ -184,7 +197,9 @@ def index_page():
             # Benutzer-ID aus dem Eingabefeld holen und validieren
             user_id = int(user_input.value or 0)
             if user_id < 1:
-                status_label.set_content("Bitte gib eine gültige Benutzer-ID (>= 1) ein.")
+                status_label.set_content(
+                    "Bitte gib eine gültige Benutzer-ID (>= 1) ein."
+                )
                 return
 
             # Schritt 1: Datei verarbeiten und in der Datenbank speichern
@@ -195,17 +210,17 @@ def index_page():
                 selected["content"],
                 selected["name"],
             )
-            
+
             # Schritt 2: Beleg analysieren
             status_label.set_content("Analyse wird durchgeführt...")
             analysis = await analyze_receipt(upload_result["receipt_id"], user_id)
-            
+
             # Analyseergebnis zum Ergebnis hinzufügen
             upload_result["analysis"] = analysis
-            
+
             # Schritt 3: Endergebnis anzeigen
             status_label.set_content(f"Upload & Analyse erfolgreich:\n{upload_result}")
-            
+
         except Exception as error:
             # Bei Fehlern eine einfache Fehlermeldung anzeigen
             status_label.set_content(f"Fehler: {error!s}")

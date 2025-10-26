@@ -368,3 +368,27 @@ def test_connection():
                 print("✅ Datenbankverbindung erfolgreich hergestellt:", cur.fetchone()[0])
     except Exception as e:
         print("❌ Fehler bei der Datenbankverbindung:", e)
+
+
+def fetch_db_heartbeat() -> dict:
+    """
+    Liest Diagnosedaten (Servername, Datenbankname, Serverzeit) aus der Datenbank.
+    Praktisch für API-Healthchecks.
+    """
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                """
+                SELECT
+                    @@SERVERNAME AS server_name,
+                    DB_NAME() AS database_name,
+                    SYSDATETIMEOFFSET() AS server_time
+                """
+            )
+            row = cur.fetchone() or {}
+            server_time = row.get("server_time")
+            return {
+                "server": row.get("server_name"),
+                "database": row.get("database_name"),
+                "server_time": server_time.isoformat() if hasattr(server_time, "isoformat") else None,
+            }
