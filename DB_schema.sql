@@ -69,6 +69,7 @@ BEGIN
         account_id     INT                 NOT NULL,
         amount         DECIMAL(18,2)       NOT NULL,
         category_id    INT                 NULL,       -- optional
+        receipt_id     INT                 NULL,
         [description]  NVARCHAR(500)       NULL,
         [date]         DATE                NOT NULL,
         [type]         NVARCHAR(20)        NOT NULL,   -- 'expense' | 'income'
@@ -82,6 +83,8 @@ BEGIN
         -- WICHTIG: KEINE Cascade-Action hier, um multiple Pfade zu vermeiden
         CONSTRAINT FK_transactions_category
             FOREIGN KEY (category_id) REFERENCES app.categories(category_id),
+        CONSTRAINT FK_transactions_receipt
+            FOREIGN KEY (receipt_id) REFERENCES app.receipts(receipt_id),
 
         CONSTRAINT CK_transactions_type
             CHECK ([type] IN (N'expense', N'income')),

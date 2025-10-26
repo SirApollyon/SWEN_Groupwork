@@ -15,3 +15,6 @@ httpx
 python-multipart
 python-dotenv
 pymssql
+Pillow
+google-generativeai
+geopy
