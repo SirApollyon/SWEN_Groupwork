@@ -113,17 +113,44 @@ async def api_analyze_receipt(receipt_id: int, user_id: int | None = None):
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
 ui.run_with(app)
 
+# Navigation extrahieren, damit sie auf jeder Seite erscheint
+def nav_item(label: str, icon: str, path: str, active: bool = False):
+    with ui.row().classes('items-center gap-2 q-px-md q-py-sm rounded-2xl cursor-pointer '
+                          + ('bg-primary text-white' if active else 'text-grey-7')):
+        ui.icon(icon)
+        ui.link(label, path).classes('no-underline')
 
-# 4. NiceGUI Benutzeroberfläche
+def current_path() -> str:
+    try:
+        return ui.get_client().content.path
+    except:
+        return '/'
 
+def nav():
+    with ui.header().classes('justify-center bg-white/70 backdrop-blur-md'):
+        with ui.row().classes('items-center gap-2'):
+            p = current_path()
+            nav_item('Home',      'home',           '/',         active=(p == '/'))
+            nav_item('Upload',    'upload',         '/upload',   active=(p == '/upload'))
+            nav_item('Receipts',  'receipt_long',   '/receipts', active=(p == '/receipts'))
+            nav_item('Dashboard', 'dashboard',      '/dashboard',active=(p == '/dashboard'))
 
-@ui.page("/")
-def index_page():
-    """
-    Definiert die Hauptseite der Web-Anwendung.
-    Diese Funktion wird aufgerufen, wenn ein Benutzer die Seite "/" besucht.
-    """
-    ui.markdown("# Beleg hochladen")
+# Navigation / Menüleiste
+@ui.page('/')
+def home_page():
+    nav()
+    with ui.column().classes('items-center justify-center min-h-screen gap-4'):
+        ui.icon('emoji_objects').classes('text-5xl')
+        ui.label('Willkommen beim Smart Expense Tracker!').classes('text-h5')
+        ui.label('Wähle oben einen Menüpunkt aus.').classes('text-body1')
+
+# 4. Drei Hauptregister
+
+@ui.page('/upload')
+def upload_page():
+    nav()
+    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
+        ui.markdown("## Beleg hochladen")
 
     # Eingabefeld für die Benutzer-ID
     user_input = ui.number(label="Benutzer-ID", value=1, min=1)
@@ -224,6 +251,19 @@ def index_page():
         on_click=lambda: run_full_flow(selected_files["camera"]),
     )
 
+@ui.page('/receipts')
+def receipts_page():
+    nav()
+    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
+        ui.label('📄 Gespeicherte Belege')
+        ui.markdown('Hier könnte eine Tabelle mit allen Belegen angezeigt werden.')
+
+@ui.page('/dashboard')
+def dashboard_page():
+    nav()
+    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
+        ui.label('📊 Dashboard')
+        ui.markdown('Hier kannst du Auswertungen und Diagramme anzeigen.')
 
 # 5. Wichtiger Hinweis zum Ausführen der Anwendung:
 # Die Funktion ui.run() wird normalerweise nicht direkt aufgerufen, wenn man `uvicorn` vom Terminal startet.
