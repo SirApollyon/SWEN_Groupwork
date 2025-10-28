@@ -115,8 +115,9 @@ ui.run_with(app)
 
 # Navigation extrahieren, damit sie auf jeder Seite erscheint
 def nav_item(label: str, icon: str, path: str, active: bool = False):
-    with ui.row().classes('items-center gap-2 q-px-md q-py-sm rounded-2xl cursor-pointer '
-                          + ('bg-primary text-white' if active else 'text-grey-7')):
+    color = 'text-primary' if active else 'text-grey-7'
+    with ui.row().classes(f'items-center gap-1 cursor-pointer {color}') \
+                 .on('click', lambda: ui.navigate.to(path)):
         ui.icon(icon)
         ui.link(label, path).classes('no-underline')
 
@@ -139,17 +140,28 @@ def nav():
 @ui.page('/')
 def home_page():
     nav()
-    with ui.column().classes('items-center justify-center min-h-screen gap-4'):
-        ui.icon('emoji_objects').classes('text-5xl')
-        ui.label('Willkommen beim Smart Expense Tracker!').classes('text-h5')
-        ui.label('Wähle oben einen Menüpunkt aus.').classes('text-body1')
+    with ui.column().classes('items-center justify-center h-screen text-center gap-4 q-px-xl'
+                             ):
+        ui.icon('emoji_objects').classes('text-6xl text-primary')
+        ui.label('Willkommen beim Smart Expense Tracker!').classes('text-h4 font-semibold')
+        
+        ui.markdown(
+            """
+            Mit dem **Smart Expense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
+            📸 **Belege hochladen**,  
+            🧾 **automatisch analysieren lassen**  
+            und 📊 übersichtlich im **Dashboard auswerten**.  
+            """
+        ).classes('text-body1 text-grey-7 max-w-2xl')
+
+        ui.label('Wähle oben einen Menüpunkt aus, um zu starten.').classes('text-body2 text-grey-7')
 
 # 4. Drei Hauptregister
 
 @ui.page('/upload')
 def upload_page():
     nav()
-    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
+    with ui.column().classes('items-center justify-start q-mt-xl gap-3 q-pa-md'):
         ui.markdown("## Beleg hochladen")
 
     # Eingabefeld für die Benutzer-ID
