@@ -102,6 +102,197 @@ def insert_receipt(user_id: int, content: bytes):
             }
 
 
+def list_receipts_overview(user_id: int | None = None) -> list[dict]:
+    """
+    Liefert eine kompakte Ǭbersicht aller Belege mit den wichtigsten Transaktionsinformationen.
+
+    Args:
+        user_id: Optionaler Filter, um nur Belege eines bestimmten Benutzers zurǬckzugeben.
+
+    Returns:
+        Eine Liste von Dictionaries pro Beleg mit Status, Betrag, Kategorie usw.
+    """
+    params = (user_id, user_id)
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                """
+                SELECT
+                    r.receipt_id,
+                    r.user_id,
+                    r.upload_date,
+                    r.status_id,
+                    s.status_name,
+                    r.issuer_name,
+                    r.issuer_city,
+                    r.issuer_country,
+                    CASE WHEN DATALENGTH(r.receipt_image) > 0 THEN 1 ELSE 0 END AS has_image,
+                    t.amount,
+                    t.currency,
+                    t.[date]       AS transaction_date,
+                    t.[description] AS description,
+                    t.[type]       AS transaction_type,
+                    c.name         AS category_name,
+                    c.[type]       AS category_type
+                FROM app.receipts AS r
+                LEFT JOIN app.transactions AS t
+                    ON t.receipt_id = r.receipt_id
+                LEFT JOIN app.categories AS c
+                    ON t.category_id = c.category_id
+                LEFT JOIN app.receipt_status AS s
+                    ON r.status_id = s.status_id
+                WHERE (%s IS NULL OR r.user_id = %s)
+                ORDER BY r.upload_date DESC, r.receipt_id DESC
+                """,
+                params,
+            )
+            rows = cur.fetchall() or []
+
+    overview: list[dict] = []
+    for row in rows:
+        amount = row.get("amount")
+        if isinstance(amount, Decimal):
+            amount = float(amount)
+
+        tx_date = row.get("transaction_date")
+        if isinstance(tx_date, (date, datetime)):
+            tx_date_iso = tx_date.isoformat()
+        else:
+            tx_date_iso = None
+
+        upload_date = row.get("upload_date")
+        if isinstance(upload_date, (date, datetime)):
+            upload_iso = upload_date.isoformat()
+        else:
+            upload_iso = None
+
+        overview.append(
+            {
+                "receipt_id": row.get("receipt_id"),
+                "user_id": row.get("user_id"),
+                "upload_date": upload_iso,
+                "status_id": row.get("status_id"),
+                "status_name": row.get("status_name"),
+                "issuer_name": row.get("issuer_name"),
+                "issuer_city": row.get("issuer_city"),
+                "issuer_country": row.get("issuer_country"),
+                "has_image": bool(row.get("has_image")),
+                "amount": amount,
+                "currency": row.get("currency"),
+                "transaction_date": tx_date_iso,
+                "description": row.get("description"),
+                "transaction_type": row.get("transaction_type"),
+                "category_name": row.get("category_name"),
+                "category_type": row.get("category_type"),
+            }
+        )
+
+    return overview
+
+
+def get_receipt_detail(receipt_id: int) -> dict:
+    """
+    Holt alle Details zu einem einzelnen Beleg einschlie�Ylich Bild, Transaktion und Ausstellerinfos.
+
+    Args:
+        receipt_id: Die ID des gesuchten Belegs.
+
+    Returns:
+        Ein Dictionary mit allen relevanten Detailinformationen.
+    """
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                """
+                SELECT
+                    r.receipt_id,
+                    r.user_id,
+                    r.upload_date,
+                    r.status_id,
+                    s.status_name,
+                    r.extracted_text,
+                    r.error_message,
+                    r.issuer_name,
+                    r.issuer_street,
+                    r.issuer_city,
+                    r.issuer_postal_code,
+                    r.issuer_country,
+                    r.issuer_latitude,
+                    r.issuer_longitude,
+                    r.receipt_image,
+                    t.transaction_id,
+                    t.amount,
+                    t.currency,
+                    t.[date]        AS transaction_date,
+                    t.[description] AS description,
+                    t.[type]        AS transaction_type,
+                    c.category_id,
+                    c.name          AS category_name,
+                    c.[type]        AS category_type
+                FROM app.receipts AS r
+                LEFT JOIN app.transactions AS t
+                    ON t.receipt_id = r.receipt_id
+                LEFT JOIN app.categories AS c
+                    ON t.category_id = c.category_id
+                LEFT JOIN app.receipt_status AS s
+                    ON r.status_id = s.status_id
+                WHERE r.receipt_id = %s
+                """,
+                (receipt_id,),
+            )
+            row = cur.fetchone()
+
+    if not row:
+        raise ValueError(f"Beleg mit der ID {receipt_id} wurde nicht gefunden.")
+
+    amount = row.get("amount")
+    if isinstance(amount, Decimal):
+        amount = float(amount)
+
+    tx_date = row.get("transaction_date")
+    if isinstance(tx_date, (date, datetime)):
+        tx_date_iso = tx_date.isoformat()
+    else:
+        tx_date_iso = None
+
+    upload_date = row.get("upload_date")
+    if isinstance(upload_date, (date, datetime)):
+        upload_iso = upload_date.isoformat()
+    else:
+        upload_iso = None
+
+    return {
+        "receipt_id": row.get("receipt_id"),
+        "user_id": row.get("user_id"),
+        "upload_date": upload_iso,
+        "status_id": row.get("status_id"),
+        "status_name": row.get("status_name"),
+        "extracted_text": row.get("extracted_text"),
+        "error_message": row.get("error_message"),
+        "issuer": {
+            "name": row.get("issuer_name"),
+            "street": row.get("issuer_street"),
+            "city": row.get("issuer_city"),
+            "postal_code": row.get("issuer_postal_code"),
+            "country": row.get("issuer_country"),
+            "latitude": row.get("issuer_latitude"),
+            "longitude": row.get("issuer_longitude"),
+        },
+        "receipt_image": row.get("receipt_image"),
+        "transaction": {
+            "transaction_id": row.get("transaction_id"),
+            "amount": amount,
+            "currency": row.get("currency"),
+            "date": tx_date_iso,
+            "description": row.get("description"),
+            "type": row.get("transaction_type"),
+            "category_id": row.get("category_id"),
+            "category_name": row.get("category_name"),
+            "category_type": row.get("category_type"),
+        },
+    }
+
+
 def load_receipt_image(receipt_id: int) -> dict:
     """
     Lädt das Bild und die zugehörigen Metadaten für eine bestimmte Beleg-ID.
