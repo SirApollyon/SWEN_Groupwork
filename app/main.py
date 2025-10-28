@@ -135,6 +135,7 @@ def nav():
             nav_item('Upload',    'upload',         '/upload',   active=(p == '/upload'))
             nav_item('Receipts',  'receipt_long',   '/receipts', active=(p == '/receipts'))
             nav_item('Dashboard', 'dashboard',      '/dashboard',active=(p == '/dashboard'))
+            nav_item('Settings', 'settings',      '/settings',active=(p == '/settings'))
 
 # Navigation / Menüleiste
 @ui.page('/')
@@ -148,9 +149,9 @@ def home_page():
         ui.markdown(
             """
             Mit dem **Smart Expense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
-            📸 **Belege hochladen**,  
-            🧾 **automatisch analysieren lassen**  
-            und 📊 übersichtlich im **Dashboard auswerten**.  
+             **Belege hochladen**,  
+             **automatisch analysieren lassen**  
+            und  übersichtlich im **Dashboard auswerten**.  
             """
         ).classes('text-body1 text-grey-7 max-w-2xl')
 
@@ -267,15 +268,22 @@ def upload_page():
 def receipts_page():
     nav()
     with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
-        ui.label('📄 Gespeicherte Belege')
+        ui.label('Gespeicherte Belege')
         ui.markdown('Hier könnte eine Tabelle mit allen Belegen angezeigt werden.')
 
 @ui.page('/dashboard')
 def dashboard_page():
     nav()
     with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
-        ui.label('📊 Dashboard')
+        ui.label('Dashboard')
         ui.markdown('Hier kannst du Auswertungen und Diagramme anzeigen.')
+
+@ui.page('/settings')
+def receipts_page():
+    nav()
+    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
+        ui.label('Settings')
+        ui.markdown('Nutzerangaben wie (Name / Vorname) Budgetanpassung Account (Bank-Kontoverbindung) und Logout Button.')
 
 # 5. Wichtiger Hinweis zum Ausführen der Anwendung:
 # Die Funktion ui.run() wird normalerweise nicht direkt aufgerufen, wenn man `uvicorn` vom Terminal startet.
