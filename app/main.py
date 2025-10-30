@@ -241,8 +241,8 @@ def nav_item(label: str, icon: str, path: str, active: bool = False):
 
 def current_path() -> str:
     try:
-        return ui.get_client().content.path
-    except:
+        return ui.context.client.content.path
+    except Exception:
         return '/'
 
 def nav():
