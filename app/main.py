@@ -231,29 +231,119 @@ async def api_receipt_image(receipt_id: int):
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
 ui.run_with(app)
 
-# Navigation extrahieren, damit sie auf jeder Seite erscheint
-def nav_item(label: str, icon: str, path: str, active: bool = False):
-    color = 'text-primary' if active else 'text-grey-7'
-    with ui.row().classes(f'items-center gap-1 cursor-pointer {color}') \
-                 .on('click', lambda: ui.navigate.to(path)):
-        ui.icon(icon)
-        ui.link(label, path).classes('no-underline')
-
-def current_path() -> str:
+# Navigation: linke Sidebar à la Figma
+def _current_path() -> str:
     try:
         return ui.context.client.content.path
     except Exception:
         return '/'
 
+def _side_nav_item(label: str, icon: str, path: str, active: bool = False) -> None:
+    base = (
+        'w-full items-center gap-2 px-3 py-2 rounded-xl cursor-pointer '
+        'transition-all'
+    )
+    active_cls = (
+        'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
+    )
+    inactive_cls = 'text-grey-7 hover:bg-indigo-50 hover:text-indigo-700'
+    with ui.row().classes(f'{base} {active_cls if active else inactive_cls}')\
+                 .on('click', lambda: ui.navigate.to(path)):
+        ui.icon(icon).classes('text-[18px]')
+        ui.label(label).classes('text-body2 font-medium')
+
 def nav():
-    with ui.header().classes('justify-center bg-white/70 backdrop-blur-md'):
-        with ui.row().classes('items-center gap-2'):
-            p = current_path()
-            nav_item('Home',      'home',           '/',         active=(p == '/'))
-            nav_item('Upload',    'upload',         '/upload',   active=(p == '/upload'))
-            nav_item('Receipts',  'receipt_long',   '/receipts', active=(p == '/receipts'))
-            nav_item('Dashboard', 'dashboard',      '/dashboard',active=(p == '/dashboard'))
-            nav_item('Settings', 'settings',      '/settings',active=(p == '/settings'))
+    # Linke Sidebar mit Titel + Sprachchip und Haupt-Menüpunkten
+    p = _current_path()
+    with ui.left_drawer(value=True).props('bordered').classes(
+        'w-64 bg-white/80 backdrop-blur p-4'
+    ):
+        with ui.column().classes('gap-3'):
+            # Header der App
+            with ui.row().classes('items-center justify-between'):
+                with ui.column().classes('gap-0'):
+                    ui.label('Ausgaben-Tracker').classes('text-subtitle1 font-semibold')
+                    ui.label('Ihre persönliche Finanzübersicht').classes('text-caption text-grey-6')
+                # Sprachchip (ohne Funktion, rein visuell)
+                with ui.row().classes(
+                    'items-center gap-1 px-2 py-1 rounded-full bg-grey-1 text-grey-7 border'
+                ):
+                    ui.icon('language').classes('text-grey-6')
+                    ui.label('DE').classes('text-caption')
+
+            ui.separator().classes('q-my-sm')
+
+            # Menüeinträge wie im Figma: Übersicht, Belege, Hochladen
+            _side_nav_item('Übersicht', 'dashboard', '/dashboard', active=(p == '/dashboard'))
+            _side_nav_item('Belege', 'receipt_long', '/receipts', active=(p == '/receipts'))
+            _side_nav_item('Hochladen', 'upload', '/upload', active=(p == '/upload'))
+
+            # Optional: Einstellungen unten
+            ui.space()
+            _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))
+
+# ------------------ Monatsswitcher (Header rechts) ------------------
+GERMAN_MONTHS = [
+    'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+]
+
+def _first_of_month(dt: datetime) -> datetime:
+    return dt.replace(day=1)
+
+def _shift_month(dt: datetime, delta: int) -> datetime:
+    y, m = dt.year, dt.month
+    m0 = (m - 1) + delta
+    y += m0 // 12
+    m = (m0 % 12) + 1
+    return datetime(y, m, 1)
+
+def _format_month_de(dt: datetime) -> str:
+    return f"{GERMAN_MONTHS[dt.month - 1]} {dt.year}"
+
+# Fallback-State für Fälle ohne UI-Kontext (Timer/Background)
+GLOBAL_SELECTED_MONTH = _first_of_month(datetime.today())
+
+def get_selected_month() -> datetime:
+    try:
+        client = ui.context.client
+        if not hasattr(client, 'selected_month'):
+            client.selected_month = _first_of_month(datetime.today())
+        return client.selected_month
+    except Exception:
+        return GLOBAL_SELECTED_MONTH
+
+def set_selected_month(value: datetime) -> None:
+    value = _first_of_month(value)
+    try:
+        ui.context.client.selected_month = value
+    except Exception:
+        pass
+    global GLOBAL_SELECTED_MONTH
+    GLOBAL_SELECTED_MONTH = value
+
+def month_bar(username: str = 'Giuliano', on_change=None) -> None:
+    current = get_selected_month()
+    def update(delta: int) -> None:
+        nonlocal current
+        current = _shift_month(current, delta)
+        set_selected_month(current)
+        month_label.set_text(_format_month_de(current))
+        if on_change:
+            on_change(current)
+
+    with ui.row().classes('items-end gap-3'):
+        with ui.column().classes('items-end'):
+            ui.label('Aktueller Monat').classes('text-caption text-grey-6')
+            month_label = ui.label(_format_month_de(current)).classes(
+                'text-h5 text-indigo-600 font-medium'
+            )
+        with ui.row().classes('items-center gap-1 q-ml-sm'):
+            ui.button(icon='chevron_left', on_click=lambda: update(-1)).props('flat round dense')
+            ui.button(icon='chevron_right', on_click=lambda: update(1)).props('flat round dense')
+        with ui.row().classes('items-center gap-1 bg-white/90 backdrop-blur border rounded-full px-2 py-1 shadow-sm'):
+            ui.icon('person').classes('text-grey-7')
+            ui.label(username).classes('text-body2 font-medium')
 
 # Navigation / Menüleiste
 @ui.page('/')
@@ -280,6 +370,80 @@ def home_page():
 @ui.page('/upload')
 def upload_page():
     nav()
+    # Neuer Header und Karten im Figma-Stil
+    with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70'):
+        with ui.column().classes('gap-0'):
+            ui.label('Beleg hochladen').classes('text-h5')
+            ui.label('Neue Belege hinzufügen und verarbeiten').classes('text-caption text-grey-6')
+        with ui.row().classes('items-center gap-2'):
+            ui.label('Unterstützte Formate').classes('text-caption text-grey-6')
+            ui.link('JPG, PNG, PDF', '#').classes('text-indigo-600 text-caption no-underline')
+
+    status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
+    user_input = ui.number(label='Benutzer-ID', value=1, min=1).props('dense outlined').classes('q-ml-md').style('max-width: 160px')
+
+    async def run_full_flow(selected: dict | None) -> None:
+        if not selected:
+            ui.notify('Bitte zuerst eine Datei auswählen.', color='warning')
+            return
+        try:
+            user_id = int(user_input.value or 1)
+            status_label.set_text('Beleg wird hochgeladen und gespeichert …')
+            upload_result = await asyncio.to_thread(
+                process_receipt_upload,
+                user_id,
+                selected.get('content'),
+                selected.get('name'),
+            )
+            status_label.set_text('Analyse wird durchgeführt …')
+            analysis = await analyze_receipt(upload_result['receipt_id'], user_id)
+            upload_result['analysis'] = analysis
+            status_label.set_text('Upload & Analyse erfolgreich.')
+            ui.notify('Beleg verarbeitet', color='positive')
+        except Exception as error:
+            status_label.set_text(f'Fehler: {error!s}')
+            ui.notify(f'Fehler: {error!s}', color='negative')
+
+    async def handle_upload(event) -> None:
+        file_info = {"name": event.file.name or 'receipt.bin', "content": await event.file.read()}
+        await run_full_flow(file_info)
+
+    with ui.row().classes('w-full gap-4 q-px-md q-pt-md q-pb-lg'):
+        # Foto aufnehmen (Uploader versteckt, Button triggert Kamera)
+        with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center') as cam_card:
+            with ui.column().classes('items-center justify-center gap-2'):
+                ui.icon('photo_camera').classes('text-white bg-gradient-to-br from-indigo-500 to-purple-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.label('Foto aufnehmen').classes('text-subtitle2 text-grey-9')
+                ui.label('Kamera verwenden um Beleg zu fotografieren').classes('text-caption text-grey-6')
+                cam_u = ui.upload(auto_upload=True, multiple=False)
+                cam_u.props('accept="image/*" capture=environment style="display:none"')
+                ui.button(icon='add', on_click=lambda: cam_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                cam_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+
+        # Datei auswählen (Uploader versteckt, Button triggert Auswahl)
+        with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center'):
+            with ui.column().classes('items-center justify-center gap-2'):
+                ui.icon('description').classes('text-white bg-gradient-to-br from-indigo-500 to-purple-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.label('Datei auswählen').classes('text-subtitle2 text-grey-9')
+                ui.label('PDF oder Bild von Ihrem Gerät auswählen').classes('text-caption text-grey-6')
+                file_u = ui.upload(auto_upload=True, multiple=False)
+                file_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="display:none"')
+                ui.button(icon='add', on_click=lambda: file_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                file_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+
+        # Hier ablegen (unsichtbarer Drop-Bereich über gesamte Karte)
+        with ui.card().classes('relative w-[420px] h-[240px] bg-gradient-to-br from-white to-blue-50/40 rounded-2xl shadow-md border-dashed border-2 border-grey-4 items-center justify-center'):
+            with ui.column().classes('items-center justify-center gap-2 pointer-events-none'):
+                ui.icon('upload').classes('text-white bg-emerald-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.label('Hier ablegen').classes('text-subtitle2 text-grey-9')
+                ui.label('Beleg hierher ziehen und ablegen').classes('text-caption text-grey-6')
+            drop_u = ui.upload(label='', auto_upload=True, multiple=False)
+            drop_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="opacity:0; position:absolute; inset:0; cursor:pointer"')
+            drop_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+
+    # Alte Umsetzung überspringen
+    return
+    # Upload-Seite ohne Monatsanzeige
     with ui.column().classes('items-center justify-start q-mt-xl gap-3 q-pa-md'):
         ui.markdown("## Beleg hochladen")
 
@@ -386,6 +550,7 @@ def upload_page():
 @ui.page('/receipts')
 def receipts_page():
     nav()
+    # Belege-Seite ohne Monatsanzeige
 
     receipts: list[dict] = []
     filtered: list[dict] = []
@@ -725,9 +890,129 @@ def receipts_page():
 @ui.page('/dashboard')
 def dashboard_page():
     nav()
-    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
-        ui.label('Dashboard')
-        ui.markdown('Hier kannst du Auswertungen und Diagramme anzeigen.')
+    # State: Belegliste für Metriken
+    receipts: list[dict] = []
+    COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#F97316', '#06B6D4', '#EF4444']
+    _count_label = None
+    category_chart = None
+    chart_container = None
+    legend_container = None
+    def update_counts():
+        if not _count_label:
+            return
+        selected = get_selected_month()
+        count = 0
+        for r in receipts:
+            date_value = r.get('transaction_date') or r.get('upload_date')
+            try:
+                d = datetime.fromisoformat(date_value) if date_value else None
+            except Exception:
+                d = None
+            if d and d.year == selected.year and d.month == selected.month:
+                count += 1
+        _count_label.set_text(str(count))
+
+    def update_category_chart():
+        nonlocal category_chart, legend_container, chart_container
+        try:
+            if not category_chart or legend_container is None:
+                return
+            selected = get_selected_month()
+            sums: dict[str, float] = {}
+            for r in receipts:
+                date_value = r.get('transaction_date') or r.get('upload_date')
+                try:
+                    d = datetime.fromisoformat(date_value) if date_value else None
+                except Exception:
+                    d = None
+                if not d or d.year != selected.year or d.month != selected.month:
+                    continue
+                cat = r.get('category_name') or 'Ohne Kategorie'
+                amount = r.get('amount') or 0
+                try:
+                    amount = float(amount)
+                except Exception:
+                    amount = 0.0
+                sums[cat] = sums.get(cat, 0.0) + amount
+
+            data = [{'name': k, 'value': round(v, 2)} for k, v in sorted(sums.items(), key=lambda kv: kv[1], reverse=True)]
+            # Chart neu aufbauen, um Versionsunterschiede zu umgehen
+            chart_container.clear()
+            with chart_container:
+                category_chart = ui.echart({
+                    'tooltip': {'trigger': 'item', 'formatter': '{b}: {c} ({d}%)'},
+                    'series': [{
+                        'type': 'pie',
+                        'radius': ['45%', '70%'],
+                        'avoidLabelOverlap': True,
+                        'itemStyle': {'borderColor': '#fff', 'borderWidth': 2},
+                        'label': {'show': False},
+                        'labelLine': {'show': False},
+                        'data': data if data else [],
+                        'color': COLORS,
+                    }],
+                }).classes('w-[320px] h-[240px]')
+
+            legend_container.clear()
+            if not data:
+                with legend_container:
+                    ui.label('Keine Daten für den ausgewählten Monat').classes('text-caption text-grey-6')
+                return
+            for idx, item in enumerate(data):
+                with legend_container:
+                    with ui.row().classes('w-full items-center justify-between'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.element('div').style(f'width:10px;height:10px;border-radius:9999px;background:{COLORS[idx % len(COLORS)]}')
+                            ui.label(item['name']).classes('text-body2 text-grey-8')
+                        ui.label(_format_amount(item['value'], 'CHF')).classes('text-body2 text-grey-8')
+        except Exception as exc:
+            ui.notify(f'Diagramm-Fehler: {exc}', color='negative')
+
+    async def load_receipts():
+        nonlocal receipts
+        try:
+            receipts = await asyncio.to_thread(list_receipts_overview, None)
+        except Exception as exc:
+            ui.notify(f'Belege konnten nicht geladen werden: {exc}', color='negative')
+            receipts = []
+        update_counts()
+        update_category_chart()
+
+    with ui.column().classes('w-full items-stretch justify-start min-h-screen gap-4'):
+        # Kopfzeile: rechts ausgerichtete Monatsanzeige (nur auf Übersicht)
+        with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70'):
+            # Titelbereich wie im Figma (zentral/links im Content)
+            with ui.column().classes('gap-0'):
+                ui.label('Dashboard').classes('text-h5')
+                ui.label('Willkommen zurück, Giuliano').classes('text-caption text-grey-6')
+            with ui.row().classes('items-end'):
+                month_bar(on_change=lambda _: (update_counts(), update_category_chart()))
+
+        # Kachelnbereich – Kennzahl "Belege"
+        with ui.row().classes('w-full gap-4 q-px-md q-pt-md flex-wrap'):
+            metric_card = ui.card().classes(
+                'w-[340px] h-[180px] bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70 items-center justify-center'
+            )
+            with metric_card:
+                with ui.column().classes('items-center justify-center gap-2 q-pt-md'):
+                    with ui.row().classes('items-center justify-center'):
+                        ui.icon('description').classes('text-indigo-600 bg-indigo-100 rounded-full q-pa-sm').style('font-size: 28px')
+                    _count_label = ui.label('-').classes('text-h4 text-grey-9')
+                    ui.label('Belege').classes('text-caption text-grey-6')
+                    ui.timer(0.3, lambda: update_counts(), once=True)
+
+            chart_card = ui.card().classes(
+                'w-[720px] min-h-[360px] bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70'
+            )
+            with chart_card:
+                ui.label('Ausgaben nach Kategorie').classes('text-body1 q-pa-md text-grey-8')
+                with ui.row().classes('w-full items-center justify-start gap-8 q-px-md q-pb-md'):
+                    chart_container = ui.column().classes('')
+                    with chart_container:
+                        category_chart = ui.echart({'series': []}).classes('w-[320px] h-[240px]')
+                    legend_container = ui.column().classes('gap-2')
+
+        ui.timer(0.1, lambda: asyncio.create_task(load_receipts()), once=True)
 
 @ui.page('/settings')
 def receipts_page():
