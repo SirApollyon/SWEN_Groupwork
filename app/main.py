@@ -17,6 +17,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
 from nicegui import ui
 from app.db import (
+    authenticate_user,
+    create_user,
     get_receipt_detail,
     insert_receipt,
     list_receipts_overview,
@@ -27,7 +29,7 @@ from PIL import Image
 
 # 1. Erstellen der FastAPI-App
 # Dies ist die Hauptanwendung, die von einem ASGI-Server wie uvicorn ausgeführt wird.
-app = FastAPI(title="Smart Expense Tracker")
+app = FastAPI(title="Smart Exoense Tracker")
 
 # Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
 MAX_BYTES = 20 * 1024 * 1024
@@ -231,6 +233,95 @@ async def api_receipt_image(receipt_id: int):
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
 ui.run_with(app)
 
+# ------------------ Login-Helfer ------------------
+def _get_logged_in_user() -> dict | None:
+    """Liest die gespeicherten Benutzerdaten aus dem Browser-Speicher."""
+    try:
+        storage = ui.context.client.storage.user
+        guest_flag = storage.get("guest")
+        if guest_flag:
+            return {
+                "user_id": None,
+                "email": None,
+                "name": "Gastmodus",
+                "guest": True,
+            }
+        user_id = storage.get("user_id")
+        if user_id is None:
+            return None
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            return None
+        return {
+            "user_id": user_id_int,
+            "email": storage.get("email"),
+            "name": storage.get("name"),
+            "guest": False,
+        }
+    except Exception:
+        return None
+
+
+def _set_logged_in_user(user: dict) -> None:
+    """Speichert Benutzerinformationen nach erfolgreicher Anmeldung."""
+    client = ui.get_client()
+    store = client.storage.user
+    store.pop("guest", None)
+    store["user_id"] = int(user.get("user_id"))
+    store["email"] = user.get("email")
+    store["name"] = user.get("name")
+
+
+def _set_guest_user() -> None:
+    """Aktiviert den Gastmodus ohne Anmeldung."""
+    client = ui.get_client()
+    store = client.storage.user
+    store.clear()
+    store["guest"] = True
+    store["name"] = "Gastmodus"
+
+
+def _clear_logged_in_user() -> None:
+    """Löscht gespeicherte Anmeldedaten (z.B. beim Ausloggen)."""
+    client = ui.get_client()
+    store = client.storage.user
+    try:
+        store.clear()
+    except AttributeError:
+        for key in list(store.keys()):
+            del store[key]
+
+
+def _redirect_to_login(message: str | None = None) -> None:
+    """Zeigt einen kurzen Hinweis und leitet anschließend zur Login-Seite um."""
+    ui.timer(0.1, lambda: ui.navigate.to("/login"), once=True)
+    with ui.column().classes(
+        "items-center justify-center h-screen gap-3 text-grey-6"
+    ):
+        ui.spinner("dots").classes("text-primary text-4xl")
+        ui.label(message or "Weiterleitung zum Login ...").classes(
+            "text-body2 text-grey-6"
+        )
+
+
+def _ensure_authenticated(message: str | None = None) -> dict | None:
+    """Gibt den eingeloggten Benutzer zurück oder leitet andernfalls zum Login um."""
+    user = _get_logged_in_user()
+    if not user:
+        _redirect_to_login(message)
+        return None
+    return user
+
+
+def _logout_and_redirect() -> None:
+    """Meldet den aktuellen Benutzer ab und führt zurück zur Login-Seite."""
+    try:
+        _clear_logged_in_user()
+    finally:
+        ui.navigate.to("/login")
+
+
 # Navigation: linke Sidebar à la Figma
 def _current_path() -> str:
     try:
@@ -252,9 +343,11 @@ def _side_nav_item(label: str, icon: str, path: str, active: bool = False) -> No
         ui.icon(icon).classes('text-[18px]')
         ui.label(label).classes('text-body2 font-medium')
 
-def nav():
+def nav(user: dict):
     # Linke Sidebar mit Titel + Sprachchip und Haupt-Menüpunkten
     p = _current_path()
+    display_name = user.get("name") or user.get("email") or "Gast"
+    initials = "".join(part[0] for part in display_name.split() if part).upper()[:2]
     with ui.left_drawer(value=True).props('bordered').classes(
         'w-64 bg-white/80 backdrop-blur p-4'
     ):
@@ -262,7 +355,7 @@ def nav():
             # Header der App
             with ui.row().classes('items-center justify-between'):
                 with ui.column().classes('gap-0'):
-                    ui.label('Ausgaben-Tracker').classes('text-subtitle1 font-semibold')
+                    ui.label('Smart Exoense Tracker').classes('text-subtitle1 font-semibold')
                     ui.label('Ihre persönliche Finanzübersicht').classes('text-caption text-grey-6')
                 # Sprachchip (ohne Funktion, rein visuell)
                 with ui.row().classes(
@@ -281,6 +374,15 @@ def nav():
             # Optional: Einstellungen unten
             ui.space()
             _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))
+            with ui.column().classes('gap-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3'):
+                with ui.row().classes('items-center gap-2'):
+                    ui.avatar(initials or 'S').classes('bg-indigo-500 text-white')
+                    with ui.column().classes('gap-0'):
+                        ui.label(display_name).classes('text-body2 font-semibold text-grey-9')
+                        subtitle = user.get('email') if user.get('email') else ('Gastmodus aktiv' if user.get('guest') else '')
+                        ui.label(subtitle).classes('text-caption text-grey-6')
+                ui.button('Abmelden', on_click=_logout_and_redirect)\
+                    .classes('w-full bg-indigo-500 text-white hover:bg-indigo-600 hover:-translate-y-0.5 transition-all shadow-sm')
 
 # ------------------ Monatsswitcher (Header rechts) ------------------
 GERMAN_MONTHS = [
@@ -345,18 +447,182 @@ def month_bar(username: str = 'Giuliano', on_change=None) -> None:
             ui.icon('person').classes('text-grey-7')
             ui.label(username).classes('text-body2 font-medium')
 
+# Login-Seite im Look der gelieferten Vorlage
+@ui.page('/login')
+def login_page():
+    # Wenn bereits angemeldet, direkt weiterleiten
+    if _get_logged_in_user():
+        ui.timer(0.1, lambda: ui.navigate.to('/dashboard'), once=True)
+        with ui.column().classes(
+            'items-center justify-center h-screen gap-3 text-white'
+        ):
+            ui.spinner('dots').classes('text-white text-4xl')
+            ui.label('Du bist bereits eingeloggt – einen Moment...').classes(
+                'text-body2 text-white/80'
+            )
+        return
+
+    # -------- Formular-Handler (deutsch kommentiert) --------
+    async def handle_login() -> None:
+        """Prüft Eingaben und meldet den Benutzer an."""
+        status_label.set_text('')
+        email = (login_email.value or '').strip()
+        password = login_password.value or ''
+        if not email or not password:
+            status_label.set_text('Bitte E-Mail und Passwort eingeben.')
+            return
+        try:
+            user_data = await asyncio.to_thread(authenticate_user, email, password)
+        except ValueError as exc:
+            status_label.set_text(str(exc))
+            ui.notify(str(exc), color='warning')
+            return
+        except Exception as exc:
+            status_label.set_text('Anmeldung aktuell nicht möglich.')
+            ui.notify(f'Fehler bei der Anmeldung: {exc}', color='negative')
+            return
+
+        _set_logged_in_user(user_data)
+        welcome = user_data.get('name') or user_data.get('email')
+        ui.notify(f'Willkommen zurück, {welcome}!', color='positive')
+        ui.navigate.to('/dashboard')
+
+    async def handle_signup() -> None:
+        """Legt ein neues Konto in Azure SQL an."""
+        signup_status.set_text('')
+        name = (signup_name.value or '').strip()
+        email = (signup_email.value or '').strip()
+        password = signup_password.value or ''
+        confirm = signup_password_confirm.value or ''
+
+        if not email or not password:
+            signup_status.set_text('E-Mail und Passwort sind Pflichtfelder.')
+            return
+        if password != confirm:
+            signup_status.set_text('Die Passwörter stimmen nicht überein.')
+            return
+        if len(password) < 8:
+            signup_status.set_text('Das Passwort sollte mindestens 8 Zeichen haben.')
+            return
+
+        try:
+            user_data = await asyncio.to_thread(
+                create_user, name or None, email, password
+            )
+        except ValueError as exc:
+            signup_status.set_text(str(exc))
+            return
+        except Exception as exc:
+            signup_status.set_text(f'Konto konnte nicht erstellt werden: {exc}')
+            return
+
+        _set_logged_in_user(user_data)
+        ui.notify('Konto erfolgreich erstellt!', color='positive')
+        signup_dialog.close()
+        ui.navigate.to('/dashboard')
+
+    def skip_login() -> None:
+        """Ermöglicht Ansehen der Oberfläche ohne Login (Gastmodus)."""
+        _set_guest_user()
+        ui.notify('Gastmodus aktiviert – einige Funktionen sind eingeschränkt.', color='info')
+        ui.navigate.to('/dashboard')
+
+    # -------- Layout: linke blaue Bildhälfte, rechte Formularhälfte --------
+    signup_dialog = ui.dialog()
+    with signup_dialog, ui.card().classes(
+        'w-[380px] max-w-full bg-white rounded-[28px] p-6 shadow-2xl gap-4'
+    ):
+        ui.label('Konto erstellen').classes('text-h6 text-indigo-600 font-semibold')
+        ui.label('Fülle die Felder aus, um dein Smart Exoense Tracker Konto zu erstellen.')\
+            .classes('text-caption text-grey-6')
+        signup_name = ui.input('Name (optional)').props('dense outlined rounded')
+        signup_email = ui.input('E-Mail').props(
+            'dense outlined rounded type=email placeholder="name@example.com"'
+        )
+        with signup_email.add_slot('prepend'):
+            ui.icon('mail').classes('text-indigo-500')
+        signup_password = ui.input('Passwort', password=True, password_toggle_button=True)\
+            .props('dense outlined rounded placeholder="Mindestens 8 Zeichen"')
+        with signup_password.add_slot('prepend'):
+            ui.icon('lock').classes('text-indigo-500')
+        signup_password_confirm = ui.input('Passwort bestätigen', password=True, password_toggle_button=True)\
+            .props('dense outlined rounded')
+        with signup_password_confirm.add_slot('prepend'):
+            ui.icon('lock_reset').classes('text-indigo-500')
+        signup_status = ui.label('').classes('text-caption text-red-500 min-h-[18px]')
+        ui.button('Registrieren', on_click=lambda: asyncio.create_task(handle_signup()))\
+            .classes('w-full bg-indigo-500 text-white hover:bg-indigo-600 hover:-translate-y-0.5 transition-all shadow-lg rounded-xl')
+        ui.button('Abbrechen', on_click=signup_dialog.close).props('flat')\
+            .classes('w-full text-indigo-600 hover:text-indigo-700')
+
+    with ui.element('div').classes(
+        'min-h-screen w-full bg-[#0F4CFF] flex items-center justify-center px-4 py-10'
+    ):
+        with ui.element('div').classes(
+            'w-full max-w-5xl flex flex-col md:flex-row rounded-[40px] overflow-hidden '
+            'shadow-[0_44px_88px_-32px_rgba(15,76,255,0.55)]'
+        ):
+            with ui.column().classes(
+                'w-full md:w-1/2 bg-[#0F4CFF] text-white items-center justify-center py-16 px-12 gap-4'
+            ):
+                ui.icon('credit_score').classes('text-4xl text-white bg-white/10 rounded-full p-3')
+                ui.label('Smart Exoense Tracker').classes('text-3xl font-semibold text-white text-center leading-snug')
+                ui.label('Behalte Einnahmen und Ausgaben jederzeit im Blick – schnell, sicher und übersichtlich.')\
+                    .classes('text-body2 text-white/80 text-center max-w-xs')
+
+            with ui.column().classes('w-full md:w-1/2 bg-[#F4F6FB] items-center justify-center py-14 px-8'):
+                with ui.column().classes('w-full max-w-md bg-white border border-[#E5E9F5] rounded-[28px] shadow-lg p-8 gap-5'):
+                    with ui.column().classes('gap-1'):
+                        ui.html("<span class='text-grey-600 text-sm uppercase tracking-[0.3em]'>Willkommen</span>", sanitize=False)
+                        ui.html(
+                            "<span class='text-2xl md:text-3xl font-semibold text-grey-900'>Let's "
+                            "<span class='text-blue-600'>Sign In</span></span>",
+                            sanitize=False,
+                        )
+                        ui.label('Gib deine Zugangsdaten ein, um mit dem Smart Exoense Tracker zu starten.')\
+                            .classes('text-caption text-grey-6')
+                    login_email = ui.input('E-Mail').props(
+                        'dense rounded filled placeholder="name@example.com" type=email'
+                    ).classes('rounded-2xl bg-grey-1')
+                    with login_email.add_slot('prepend'):
+                        ui.icon('mail').classes('text-blue-500')
+                    login_password = ui.input('Passwort', password=True, password_toggle_button=True)\
+                        .props('dense rounded filled placeholder="••••••••"').classes('rounded-2xl bg-grey-1')
+                    with login_password.add_slot('prepend'):
+                        ui.icon('lock').classes('text-blue-500')
+                    with ui.row().classes('justify-between items-center w-full'):
+                        ui.link('Passwort vergessen?', '#').classes(
+                            'text-caption text-blue-600 hover:underline'
+                        )
+                        # Hinweis auf den Gastmodus in Deutsch für Einsteiger
+                        ui.label('Gastmodus verfügbar').classes('text-caption text-grey-5')
+                    status_label = ui.label('').classes('text-caption text-red-500 min-h-[18px]')
+                    ui.button('Sign In', on_click=lambda: asyncio.create_task(handle_login()))\
+                        .classes('w-full bg-[#0F4CFF] text-white hover:bg-blue-600 hover:-translate-y-0.5 '
+                                 'transition-all shadow-lg rounded-2xl py-3 text-button font-medium')
+                    ui.button('Ohne Anmeldung fortfahren', on_click=skip_login).props('flat')\
+                        .classes('w-full text-blue-600 hover:text-blue-700')
+                    with ui.row().classes('justify-center gap-2 text-caption text-grey-6'):
+                        ui.label('Noch kein Konto?')
+                        signup_link = ui.link('Sign Up', '#').classes(
+                            'text-blue-600 no-underline hover:underline'
+                        )
+                        signup_link.on('click', lambda _: signup_dialog.open())
 # Navigation / Menüleiste
 @ui.page('/')
 def home_page():
-    nav()
+    user = _ensure_authenticated()
+    if not user:
+        return
+    nav(user)
     with ui.column().classes('items-center justify-center h-screen text-center gap-4 q-px-xl'
                              ):
         ui.icon('emoji_objects').classes('text-6xl text-primary')
-        ui.label('Willkommen beim Smart Expense Tracker!').classes('text-h4 font-semibold')
+        ui.label('Willkommen beim Smart Exoense Tracker!').classes('text-h4 font-semibold')
         
         ui.markdown(
             """
-            Mit dem **Smart Expense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
+            Mit dem **Smart Exoense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
              **Belege hochladen**,  
              **automatisch analysieren lassen**  
             und  übersichtlich im **Dashboard auswerten**.  
@@ -369,7 +635,21 @@ def home_page():
 
 @ui.page('/upload')
 def upload_page():
-    nav()
+    user = _ensure_authenticated()
+    if not user:
+        return
+    nav(user)
+    if user.get('guest'):
+        with ui.column().classes('items-center justify-center min-h-screen gap-4 q-pa-xl text-center'):
+            ui.icon('lock').classes('text-4xl text-indigo-500')
+            ui.label('Upload im Gastmodus nicht verfügbar').classes('text-h5 text-grey-8')
+            ui.label(
+                'Bitte melde dich mit einem echten Konto an, um Belege hochzuladen. '
+                'Der Gastmodus dient nur zur Vorschau.'
+            ).classes('text-body2 text-grey-6 max-w-lg')
+            ui.button('Zur Anmeldung', on_click=lambda: ui.navigate.to('/login'))\
+                .classes('bg-indigo-500 text-white hover:bg-indigo-600')
+        return
     # Neuer Header und Karten im Figma-Stil
     with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70'):
         with ui.column().classes('gap-0'):
@@ -380,7 +660,9 @@ def upload_page():
             ui.link('JPG, PNG, PDF', '#').classes('text-indigo-600 text-caption no-underline')
 
     status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
-    user_input = ui.number(label='Benutzer-ID', value=1, min=1).props('dense outlined').classes('q-ml-md').style('max-width: 160px')
+    user_input = ui.number(label='Benutzer-ID', value=user['user_id'], min=1)\
+        .props('dense outlined readonly').classes('q-ml-md').style('max-width: 160px')
+    user_input.disable()
 
     async def run_full_flow(selected: dict | None) -> None:
         if not selected:
@@ -549,7 +831,10 @@ def upload_page():
 
 @ui.page('/receipts')
 def receipts_page():
-    nav()
+    user = _ensure_authenticated()
+    if not user:
+        return
+    nav(user)
     # Belege-Seite ohne Monatsanzeige
 
     receipts: list[dict] = []
@@ -855,7 +1140,10 @@ def receipts_page():
     async def load_data() -> None:
         nonlocal receipts, filtered, category_options
         try:
-            data = await asyncio.to_thread(list_receipts_overview, None)
+            user_id = user.get("user_id") or None
+            data = await asyncio.to_thread(
+                list_receipts_overview, user_id
+            )
         except Exception as exc:
             loading_container.clear()
             with cards_container:
@@ -889,7 +1177,11 @@ def receipts_page():
     ui.timer(0.1, lambda: asyncio.create_task(load_data()), once=True)
 @ui.page('/dashboard')
 def dashboard_page():
-    nav()
+    user = _ensure_authenticated()
+    if not user:
+        return
+    nav(user)
+    display_name = user.get('name') or user.get('email') or 'Smart Exoense Nutzer'
     # State: Belegliste für Metriken
     receipts: list[dict] = []
     COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#F97316', '#06B6D4', '#EF4444']
@@ -971,7 +1263,10 @@ def dashboard_page():
     async def load_receipts():
         nonlocal receipts
         try:
-            receipts = await asyncio.to_thread(list_receipts_overview, None)
+            user_id = user.get("user_id") or None
+            receipts = await asyncio.to_thread(
+                list_receipts_overview, user_id
+            )
         except Exception as exc:
             ui.notify(f'Belege konnten nicht geladen werden: {exc}', color='negative')
             receipts = []
@@ -984,9 +1279,12 @@ def dashboard_page():
             # Titelbereich wie im Figma (zentral/links im Content)
             with ui.column().classes('gap-0'):
                 ui.label('Dashboard').classes('text-h5')
-                ui.label('Willkommen zurück, Giuliano').classes('text-caption text-grey-6')
+                ui.label(f'Willkommen zurück, {display_name}').classes('text-caption text-grey-6')
             with ui.row().classes('items-end'):
-                month_bar(on_change=lambda _: (update_counts(), update_category_chart()))
+                month_bar(
+                    username=display_name,
+                    on_change=lambda _: (update_counts(), update_category_chart()),
+                )
 
         # Kachelnbereich – Kennzahl "Belege"
         with ui.row().classes('w-full gap-4 q-px-md q-pt-md flex-wrap'):
@@ -1015,11 +1313,16 @@ def dashboard_page():
         ui.timer(0.1, lambda: asyncio.create_task(load_receipts()), once=True)
 
 @ui.page('/settings')
-def receipts_page():
-    nav()
+def settings_page():
+    user = _ensure_authenticated()
+    if not user:
+        return
+    nav(user)
     with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
-        ui.label('Settings')
-        ui.markdown('Nutzerangaben wie (Name / Vorname) Budgetanpassung Account (Bank-Kontoverbindung) und Logout Button.')
+        ui.label('Einstellungen').classes('text-h5')
+        ui.markdown(
+            'Hier können in Zukunft persönliche Daten, Budgets und Konten verwaltet werden.'
+        ).classes('text-body2 text-grey-7')
 
 # 5. Wichtiger Hinweis zum Ausführen der Anwendung:
 # Die Funktion ui.run() wird normalerweise nicht direkt aufgerufen, wenn man `uvicorn` vom Terminal startet.

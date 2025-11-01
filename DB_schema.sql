@@ -17,6 +17,21 @@ BEGIN
 END
 GO
 
+-- USER CREDENTIALS
+
+IF OBJECT_ID('app.user_credentials') IS NULL
+BEGIN
+    CREATE TABLE app.user_credentials (
+        user_id        INT PRIMARY KEY,
+        password_hash  NVARCHAR(128)       NOT NULL,
+        salt           NVARCHAR(64)        NOT NULL,
+        CONSTRAINT FK_user_credentials_user
+            FOREIGN KEY (user_id) REFERENCES app.users(user_id)
+            ON DELETE CASCADE
+    );
+END
+GO
+
 -- ACCOUNTS
 
 IF OBJECT_ID('app.accounts') IS NULL

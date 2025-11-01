@@ -8,6 +8,8 @@ von Verbindungen, das Ausführen von SQL-Abfragen und das Zurückgeben der Ergeb
 """
 
 import os
+import hashlib
+import secrets
 from datetime import date, datetime
 from decimal import Decimal
 from dotenv import load_dotenv
@@ -40,6 +42,144 @@ CONNECT_KW = dict(
     login_timeout=30,
     tds_version="7.4",  # Wichtig für die Kompatibilität mit Azure SQL
 )
+
+
+def _generate_salt() -> str:
+    """Erzeugt zufälliges Salz, damit Passwörter nicht erratbar sind."""
+    return secrets.token_hex(16)
+
+
+def _hash_password(password: str, salt: str) -> str:
+    """Berechnet einen Hash aus Passwort und Salz per PBKDF2."""
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt),
+        120_000,
+    )
+    return digest.hex()
+
+
+def create_user(name: str | None, email: str, password: str) -> dict:
+    """
+    Legt einen neuen Benutzer in Azure SQL an und speichert ein sicheres Passwort.
+
+    Args:
+        name: Anzeigename des Benutzers (optional).
+        email: E-Mail-Adresse, die als Login dient.
+        password: Gewähltes Passwort im Klartext.
+
+    Returns:
+        Ein Dictionary mit den Basisdaten des neuen Benutzers.
+    """
+    if not email:
+        raise ValueError("Eine E-Mail-Adresse wird benötigt.")
+    if not password:
+        raise ValueError("Ein Passwort wird benötigt.")
+
+    cleaned_email = email.strip().lower()
+    cleaned_name = name.strip() if name else None
+
+    salt = _generate_salt()
+    password_hash = _hash_password(password, salt)
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                "SELECT user_id FROM app.users WHERE LOWER(email)=LOWER(%s)",
+                (cleaned_email,),
+            )
+            if cur.fetchone():
+                raise ValueError(
+                    "Für diese E-Mail-Adresse existiert bereits ein Konto."
+                )
+            cur.execute(
+                """
+                INSERT INTO app.users (name, email)
+                OUTPUT INSERTED.user_id, INSERTED.name, INSERTED.email, INSERTED.creation_date
+                VALUES (%s, %s)
+                """,
+                (cleaned_name, cleaned_email),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise RuntimeError("Der neue Benutzer konnte nicht angelegt werden.")
+
+            cur.execute(
+                """
+                INSERT INTO app.user_credentials (user_id, password_hash, salt)
+                VALUES (%s, %s, %s)
+                """,
+                (row["user_id"], password_hash, salt),
+            )
+            conn.commit()
+
+            creation = row["creation_date"]
+            created_at = (
+                creation.isoformat() if isinstance(creation, (datetime, date)) else None
+            )
+            return {
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "email": row["email"],
+                "creation_date": created_at,
+            }
+
+
+def authenticate_user(email: str, password: str) -> dict:
+    """
+    Prüft Anmeldedaten und liefert Benutzerinformationen bei Erfolg.
+
+    Args:
+        email: E-Mail-Adresse des Kontos.
+        password: Passwort im Klartext.
+
+    Returns:
+        Ein Dictionary mit Benutzer-ID, Name und E-Mail.
+    """
+    if not email or not password:
+        raise ValueError("Bitte E-Mail und Passwort eingeben.")
+
+    cleaned_email = email.strip().lower()
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                """
+                SELECT
+                    u.user_id,
+                    u.name,
+                    u.email,
+                    u.creation_date,
+                    cred.password_hash,
+                    cred.salt
+                FROM app.users AS u
+                JOIN app.user_credentials AS cred
+                    ON cred.user_id = u.user_id
+                WHERE LOWER(u.email)=LOWER(%s)
+                """,
+                (cleaned_email,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise ValueError("E-Mail oder Passwort ist nicht korrekt.")
+
+            expected_hash = row["password_hash"]
+            salt = row["salt"]
+            calculated_hash = _hash_password(password, salt)
+            if calculated_hash != expected_hash:
+                raise ValueError("E-Mail oder Passwort ist nicht korrekt.")
+
+            creation = row["creation_date"]
+            created_at = (
+                creation.isoformat() if isinstance(creation, (datetime, date)) else None
+            )
+            return {
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "email": row["email"],
+                "creation_date": created_at,
+            }
 
 
 def insert_receipt(user_id: int, content: bytes):
