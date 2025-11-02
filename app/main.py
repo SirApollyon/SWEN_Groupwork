@@ -29,7 +29,7 @@ from PIL import Image
 
 # 1. Erstellen der FastAPI-App
 # Dies ist die Hauptanwendung, die von einem ASGI-Server wie uvicorn ausgeführt wird.
-app = FastAPI(title="Smart Exoense Tracker")
+app = FastAPI(title="Smart Expense Tracker")
 
 # Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
 MAX_BYTES = 20 * 1024 * 1024
@@ -265,7 +265,9 @@ def _get_logged_in_user() -> dict | None:
 
 def _set_logged_in_user(user: dict) -> None:
     """Speichert Benutzerinformationen nach erfolgreicher Anmeldung."""
-    client = ui.get_client()
+    client = getattr(ui.context, "client", None)
+    if not client:
+        return
     store = client.storage.user
     store.pop("guest", None)
     store["user_id"] = int(user.get("user_id"))
@@ -275,7 +277,9 @@ def _set_logged_in_user(user: dict) -> None:
 
 def _set_guest_user() -> None:
     """Aktiviert den Gastmodus ohne Anmeldung."""
-    client = ui.get_client()
+    client = getattr(ui.context, "client", None)
+    if not client:
+        return
     store = client.storage.user
     store.clear()
     store["guest"] = True
@@ -284,7 +288,9 @@ def _set_guest_user() -> None:
 
 def _clear_logged_in_user() -> None:
     """Löscht gespeicherte Anmeldedaten (z.B. beim Ausloggen)."""
-    client = ui.get_client()
+    client = getattr(ui.context, "client", None)
+    if not client:
+        return
     store = client.storage.user
     try:
         store.clear()
@@ -355,7 +361,7 @@ def nav(user: dict):
             # Header der App
             with ui.row().classes('items-center justify-between'):
                 with ui.column().classes('gap-0'):
-                    ui.label('Smart Exoense Tracker').classes('text-subtitle1 font-semibold')
+                    ui.label('Smart Expense Tracker').classes('text-subtitle1 font-semibold')
                     ui.label('Ihre persönliche Finanzübersicht').classes('text-caption text-grey-6')
                 # Sprachchip (ohne Funktion, rein visuell)
                 with ui.row().classes(
@@ -533,7 +539,7 @@ def login_page():
         'w-[380px] max-w-full bg-white rounded-[28px] p-6 shadow-2xl gap-4'
     ):
         ui.label('Konto erstellen').classes('text-h6 text-indigo-600 font-semibold')
-        ui.label('Fülle die Felder aus, um dein Smart Exoense Tracker Konto zu erstellen.')\
+        ui.label('Fülle die Felder aus, um dein Smart Expense Tracker Konto zu erstellen.')\
             .classes('text-caption text-grey-6')
         signup_name = ui.input('Name (optional)').props('dense outlined rounded')
         signup_email = ui.input('E-Mail').props(
@@ -566,7 +572,7 @@ def login_page():
                 'w-full md:w-1/2 bg-[#0F4CFF] text-white items-center justify-center py-16 px-12 gap-4'
             ):
                 ui.icon('credit_score').classes('text-4xl text-white bg-white/10 rounded-full p-3')
-                ui.label('Smart Exoense Tracker').classes('text-3xl font-semibold text-white text-center leading-snug')
+                ui.label('Smart Expense Tracker').classes('text-3xl font-semibold text-white text-center leading-snug')
                 ui.label('Behalte Einnahmen und Ausgaben jederzeit im Blick – schnell, sicher und übersichtlich.')\
                     .classes('text-body2 text-white/80 text-center max-w-xs')
 
@@ -579,7 +585,7 @@ def login_page():
                             "<span class='text-blue-600'>Sign In</span></span>",
                             sanitize=False,
                         )
-                        ui.label('Gib deine Zugangsdaten ein, um mit dem Smart Exoense Tracker zu starten.')\
+                        ui.label('Gib deine Zugangsdaten ein, um mit dem Smart Expense Tracker zu starten.')\
                             .classes('text-caption text-grey-6')
                     login_email = ui.input('E-Mail').props(
                         'dense rounded filled placeholder="name@example.com" type=email'
@@ -618,11 +624,11 @@ def home_page():
     with ui.column().classes('items-center justify-center h-screen text-center gap-4 q-px-xl'
                              ):
         ui.icon('emoji_objects').classes('text-6xl text-primary')
-        ui.label('Willkommen beim Smart Exoense Tracker!').classes('text-h4 font-semibold')
+        ui.label('Willkommen beim Smart Expense Tracker!').classes('text-h4 font-semibold')
         
         ui.markdown(
             """
-            Mit dem **Smart Exoense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
+            Mit dem **Smart Expense Tracker** kannst du deine Ausgaben ganz einfach digital verwalten:  
              **Belege hochladen**,  
              **automatisch analysieren lassen**  
             und  übersichtlich im **Dashboard auswerten**.  
@@ -1181,7 +1187,7 @@ def dashboard_page():
     if not user:
         return
     nav(user)
-    display_name = user.get('name') or user.get('email') or 'Smart Exoense Nutzer'
+    display_name = user.get('name') or user.get('email') or 'Smart Expense Nutzer'
     # State: Belegliste für Metriken
     receipts: list[dict] = []
     COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#F97316', '#06B6D4', '#EF4444']
