@@ -15,7 +15,7 @@ from io import BytesIO
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
-from nicegui import ui
+from nicegui import ui, app as ng_app, storage as ng_storage
 from app.db import (
     authenticate_user,
     create_user,
@@ -30,6 +30,9 @@ from PIL import Image
 # 1. Erstellen der FastAPI-App
 # Dies ist die Hauptanwendung, die von einem ASGI-Server wie uvicorn ausgeführt wird.
 app = FastAPI(title="Smart Expense Tracker")
+
+# NiceGUI-Storage aktivieren (für Benutzerzustand über Seitenwechsel hinweg)
+ng_storage.set_storage_secret(os.getenv("NICEGUI_STORAGE_SECRET", "smart-expense-secret"))
 
 # Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
 MAX_BYTES = 20 * 1024 * 1024
@@ -234,41 +237,130 @@ async def api_receipt_image(receipt_id: int):
 ui.run_with(app)
 
 # ------------------ Login-Helfer ------------------
-def _get_logged_in_user() -> dict | None:
-    """Liest die gespeicherten Benutzerdaten aus dem Browser-Speicher."""
+def _get_user_store(create: bool = False) -> dict | None:
+    """Liefert den benutzerspezifischen Storage (persistiert über Seitenwechsel)."""
     try:
-        storage = ui.context.client.storage.user
-        guest_flag = storage.get("guest")
-        if guest_flag:
-            return {
-                "user_id": None,
-                "email": None,
-                "name": "Gastmodus",
-                "guest": True,
-            }
-        user_id = storage.get("user_id")
-        if user_id is None:
+        store = ng_app.storage.user
+        if store is not None:
+            return store
+    except Exception:
+        store = None
+
+    client = getattr(ui.context, "client", None)
+    if not client:
+        return None
+    root_storage = getattr(client, "storage", None)
+    if not root_storage:
+        return None
+
+    contains_user_key = False
+    try:
+        contains_user_key = "user" in root_storage  # type: ignore[operator]
+    except Exception:
+        contains_user_key = False
+
+    if not contains_user_key:
+        if not create:
             return None
         try:
-            user_id_int = int(user_id)
-        except (ValueError, TypeError):
+            root_storage["user"] = {}  # type: ignore[index]
+        except Exception:
+            try:
+                setattr(root_storage, "user", {})
+            except Exception:
+                return None
+
+    store = None
+    getter = getattr(root_storage, "get", None)
+    if callable(getter):
+        try:
+            store = getter("user")
+        except Exception:
+            store = None
+    if store is None:
+        try:
+            store = getattr(root_storage, "user")
+        except Exception:
+            store = None
+
+    if isinstance(store, dict):
+        return store
+
+    if store is None:
+        if not create:
             return None
-        return {
-            "user_id": user_id_int,
-            "email": storage.get("email"),
-            "name": storage.get("name"),
-            "guest": False,
-        }
+        normalized: dict = {}
+    else:
+        try:
+            normalized = dict(store)
+        except TypeError:
+            normalized = {}
+
+    stored_ok = False
+    try:
+        root_storage["user"] = normalized  # type: ignore[index]
+        stored_ok = True
     except Exception:
+        pass
+    if not stored_ok:
+        try:
+            setattr(root_storage, "user", normalized)
+            stored_ok = True
+        except Exception:
+            return None
+
+    refreshed = None
+    if stored_ok:
+        getter = getattr(root_storage, "get", None)
+        if callable(getter):
+            try:
+                refreshed = getter("user")
+            except Exception:
+                refreshed = None
+        if refreshed is None:
+            try:
+                refreshed = getattr(root_storage, "user")
+            except Exception:
+                refreshed = None
+
+    return refreshed if isinstance(refreshed, dict) else normalized
+
+
+def _get_logged_in_user() -> dict | None:
+    """Liest die gespeicherten Benutzerdaten aus dem Browser-Speicher."""
+    storage = _get_user_store(create=False)
+    if storage is None:
         return None
+
+    guest_flag = storage.get("guest")
+    if guest_flag:
+        return {
+            "user_id": None,
+            "email": None,
+            "name": "Gastmodus",
+            "guest": True,
+        }
+
+    user_id = storage.get("user_id")
+    if user_id is None:
+        return None
+    try:
+        user_id_int = int(user_id)
+    except (ValueError, TypeError):
+        return None
+    return {
+        "user_id": user_id_int,
+        "email": storage.get("email"),
+        "name": storage.get("name"),
+        "guest": bool(storage.get("guest")),
+    }
 
 
 def _set_logged_in_user(user: dict) -> None:
     """Speichert Benutzerinformationen nach erfolgreicher Anmeldung."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=True)
+    if store is None:
         return
-    store = client.storage.user
     store.pop("guest", None)
     store["user_id"] = int(user.get("user_id"))
     store["email"] = user.get("email")
@@ -277,21 +369,21 @@ def _set_logged_in_user(user: dict) -> None:
 
 def _set_guest_user() -> None:
     """Aktiviert den Gastmodus ohne Anmeldung."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=True)
+    if store is None:
         return
-    store = client.storage.user
     store.clear()
-    store["guest"] = True
-    store["name"] = "Gastmodus"
+    store["user_id"] = 1
+    store["email"] = None
+    store["name"] = "Demo-Konto"
+    store["guest"] = False
 
 
 def _clear_logged_in_user() -> None:
     """Löscht gespeicherte Anmeldedaten (z.B. beim Ausloggen)."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=False)
+    if not store:
         return
-    store = client.storage.user
     try:
         store.clear()
     except AttributeError:
@@ -528,9 +620,9 @@ def login_page():
         ui.navigate.to('/dashboard')
 
     def skip_login() -> None:
-        """Ermöglicht Ansehen der Oberfläche ohne Login (Gastmodus)."""
+        """Lädt das Demo-Konto ohne Anmeldung."""
         _set_guest_user()
-        ui.notify('Gastmodus aktiviert – einige Funktionen sind eingeschränkt.', color='info')
+        ui.notify('Demo-Konto geladen (Benutzer 1).', color='info')
         ui.navigate.to('/dashboard')
 
     # -------- Layout: linke blaue Bildhälfte, rechte Formularhälfte --------

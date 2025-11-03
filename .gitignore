@@ -42,3 +42,4 @@ venv/
 
 # MacOS files
 .DS_Store
+.nicegui
