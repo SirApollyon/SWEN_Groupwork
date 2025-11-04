@@ -15,7 +15,7 @@ from io import BytesIO
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
-from nicegui import ui
+from nicegui import ui, app as ng_app, storage as ng_storage
 from app.db import (
     authenticate_user,
     create_user,
@@ -30,6 +30,9 @@ from PIL import Image
 # 1. Erstellen der FastAPI-App
 # Dies ist die Hauptanwendung, die von einem ASGI-Server wie uvicorn ausgeführt wird.
 app = FastAPI(title="Smart Expense Tracker")
+
+# NiceGUI-Storage aktivieren (für Benutzerzustand über Seitenwechsel hinweg)
+ng_storage.set_storage_secret(os.getenv("NICEGUI_STORAGE_SECRET", "smart-expense-secret"))
 
 # Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
 MAX_BYTES = 20 * 1024 * 1024
@@ -234,41 +237,130 @@ async def api_receipt_image(receipt_id: int):
 ui.run_with(app)
 
 # ------------------ Login-Helfer ------------------
-def _get_logged_in_user() -> dict | None:
-    """Liest die gespeicherten Benutzerdaten aus dem Browser-Speicher."""
+def _get_user_store(create: bool = False) -> dict | None:
+    """Liefert den benutzerspezifischen Storage (persistiert über Seitenwechsel)."""
     try:
-        storage = ui.context.client.storage.user
-        guest_flag = storage.get("guest")
-        if guest_flag:
-            return {
-                "user_id": None,
-                "email": None,
-                "name": "Gastmodus",
-                "guest": True,
-            }
-        user_id = storage.get("user_id")
-        if user_id is None:
+        store = ng_app.storage.user
+        if store is not None:
+            return store
+    except Exception:
+        store = None
+
+    client = getattr(ui.context, "client", None)
+    if not client:
+        return None
+    root_storage = getattr(client, "storage", None)
+    if not root_storage:
+        return None
+
+    contains_user_key = False
+    try:
+        contains_user_key = "user" in root_storage  # type: ignore[operator]
+    except Exception:
+        contains_user_key = False
+
+    if not contains_user_key:
+        if not create:
             return None
         try:
-            user_id_int = int(user_id)
-        except (ValueError, TypeError):
+            root_storage["user"] = {}  # type: ignore[index]
+        except Exception:
+            try:
+                setattr(root_storage, "user", {})
+            except Exception:
+                return None
+
+    store = None
+    getter = getattr(root_storage, "get", None)
+    if callable(getter):
+        try:
+            store = getter("user")
+        except Exception:
+            store = None
+    if store is None:
+        try:
+            store = getattr(root_storage, "user")
+        except Exception:
+            store = None
+
+    if isinstance(store, dict):
+        return store
+
+    if store is None:
+        if not create:
             return None
-        return {
-            "user_id": user_id_int,
-            "email": storage.get("email"),
-            "name": storage.get("name"),
-            "guest": False,
-        }
+        normalized: dict = {}
+    else:
+        try:
+            normalized = dict(store)
+        except TypeError:
+            normalized = {}
+
+    stored_ok = False
+    try:
+        root_storage["user"] = normalized  # type: ignore[index]
+        stored_ok = True
     except Exception:
+        pass
+    if not stored_ok:
+        try:
+            setattr(root_storage, "user", normalized)
+            stored_ok = True
+        except Exception:
+            return None
+
+    refreshed = None
+    if stored_ok:
+        getter = getattr(root_storage, "get", None)
+        if callable(getter):
+            try:
+                refreshed = getter("user")
+            except Exception:
+                refreshed = None
+        if refreshed is None:
+            try:
+                refreshed = getattr(root_storage, "user")
+            except Exception:
+                refreshed = None
+
+    return refreshed if isinstance(refreshed, dict) else normalized
+
+
+def _get_logged_in_user() -> dict | None:
+    """Liest die gespeicherten Benutzerdaten aus dem Browser-Speicher."""
+    storage = _get_user_store(create=False)
+    if storage is None:
         return None
+
+    guest_flag = storage.get("guest")
+    if guest_flag:
+        return {
+            "user_id": None,
+            "email": None,
+            "name": "Gastmodus",
+            "guest": True,
+        }
+
+    user_id = storage.get("user_id")
+    if user_id is None:
+        return None
+    try:
+        user_id_int = int(user_id)
+    except (ValueError, TypeError):
+        return None
+    return {
+        "user_id": user_id_int,
+        "email": storage.get("email"),
+        "name": storage.get("name"),
+        "guest": bool(storage.get("guest")),
+    }
 
 
 def _set_logged_in_user(user: dict) -> None:
     """Speichert Benutzerinformationen nach erfolgreicher Anmeldung."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=True)
+    if store is None:
         return
-    store = client.storage.user
     store.pop("guest", None)
     store["user_id"] = int(user.get("user_id"))
     store["email"] = user.get("email")
@@ -277,21 +369,21 @@ def _set_logged_in_user(user: dict) -> None:
 
 def _set_guest_user() -> None:
     """Aktiviert den Gastmodus ohne Anmeldung."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=True)
+    if store is None:
         return
-    store = client.storage.user
     store.clear()
-    store["guest"] = True
-    store["name"] = "Gastmodus"
+    store["user_id"] = 1
+    store["email"] = None
+    store["name"] = "Demo-Konto"
+    store["guest"] = False
 
 
 def _clear_logged_in_user() -> None:
     """Löscht gespeicherte Anmeldedaten (z.B. beim Ausloggen)."""
-    client = getattr(ui.context, "client", None)
-    if not client:
+    store = _get_user_store(create=False)
+    if not store:
         return
-    store = client.storage.user
     try:
         store.clear()
     except AttributeError:
@@ -528,9 +620,9 @@ def login_page():
         ui.navigate.to('/dashboard')
 
     def skip_login() -> None:
-        """Ermöglicht Ansehen der Oberfläche ohne Login (Gastmodus)."""
+        """Lädt das Demo-Konto ohne Anmeldung."""
         _set_guest_user()
-        ui.notify('Gastmodus aktiviert – einige Funktionen sind eingeschränkt.', color='info')
+        ui.notify('Demo-Konto geladen (Benutzer 1).', color='info')
         ui.navigate.to('/dashboard')
 
     # -------- Layout: linke blaue Bildhälfte, rechte Formularhälfte --------
@@ -1324,11 +1416,82 @@ def settings_page():
     if not user:
         return
     nav(user)
-    with ui.column().classes('items-center justify-start min-h-screen gap-4 q-pa-md'):
-        ui.label('Einstellungen').classes('text-h5')
-        ui.markdown(
-            'Hier können in Zukunft persönliche Daten, Budgets und Konten verwaltet werden.'
-        ).classes('text-body2 text-grey-7')
+    store = _get_user_store(create=True) or {}
+    stored_first_name = store.get('settings_first_name') or ''
+    stored_last_name = store.get('settings_last_name') or ''
+    stored_budget_raw = store.get('settings_budget') or ''
+    stored_iban = store.get('settings_iban') or ''
+    if isinstance(stored_budget_raw, (int, float)):
+        stored_budget = f'{stored_budget_raw:.2f}'
+    else:
+        stored_budget = str(stored_budget_raw) if stored_budget_raw else ''
+    with ui.column().classes(
+        'items-center justify-start min-h-screen gap-6 q-pa-md bg-slate-50'
+    ):
+        ui.label('Einstellungen').classes('text-h5 text-grey-9')
+        settings_card = ui.card().classes(
+            'w-full max-w-3xl bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70 p-6 gap-4'
+        )
+        with settings_card:
+            ui.label('Persoenliche Informationen & Budget').classes(
+                'text-subtitle1 text-grey-8'
+            )
+            with ui.column().classes('w-full gap-4'):
+                with ui.row().classes('w-full gap-4 flex-wrap'):
+                    first_name_input = ui.input('Vorname').props('outlined dense').classes(
+                        'flex-1 min-w-[220px]'
+                    )
+                    first_name_input.value = stored_first_name
+                    last_name_input = ui.input('Nachname').props('outlined dense').classes(
+                        'flex-1 min-w-[220px]'
+                    )
+                    last_name_input.value = stored_last_name
+                budget_input = ui.input('Maximales Budget (CHF)').props(
+                    'outlined dense type=number min=0 step=0.05'
+                ).classes('w-full')
+                if stored_budget:
+                    budget_input.value = stored_budget
+                iban_input = ui.input('IBAN').props(
+                    'outlined dense placeholder="CH00 0000 0000 0000 0000 0"'
+                ).classes('w-full uppercase')
+                iban_input.value = stored_iban
+                status_label = ui.label('').classes('text-caption min-h-[20px] text-grey-7')
+
+                def save_settings() -> None:
+                    first_name = (first_name_input.value or '').strip()
+                    last_name = (last_name_input.value or '').strip()
+                    budget_raw = (budget_input.value or '').strip().replace(' ', '')
+                    iban_value = (iban_input.value or '').strip().replace(' ', '').upper()
+                    current_store = _get_user_store(create=True)
+                    if current_store is None:
+                        status_label.set_text('Speichern derzeit nicht moeglich.')
+                        status_label.style('color: #dc2626')
+                        ui.notify('Speichern fehlgeschlagen', color='negative')
+                        return
+                    if budget_raw:
+                        normalized_budget_raw = budget_raw.replace(',', '.')
+                        try:
+                            budget_amount = float(normalized_budget_raw)
+                        except ValueError:
+                            status_label.set_text('Bitte gib einen gueltigen Betrag ein.')
+                            status_label.style('color: #dc2626')
+                            ui.notify('Ungueltiger Budgetbetrag', color='negative')
+                            return
+                        current_store['settings_budget'] = round(budget_amount, 2)
+                        budget_input.value = f'{budget_amount:.2f}'
+                    else:
+                        current_store['settings_budget'] = ''
+                    current_store['settings_first_name'] = first_name
+                    current_store['settings_last_name'] = last_name
+                    current_store['settings_iban'] = iban_value
+                    status_label.set_text('Aenderungen gespeichert.')
+                    status_label.style('color: #16a34a')
+                    ui.notify('Einstellungen gespeichert', color='positive')
+
+                ui.button('speichern', on_click=save_settings).classes(
+                    'self-end bg-indigo-500 text-white rounded-xl px-6 py-2 '
+                    'hover:bg-indigo-600 transition-all'
+                )
 
 # 5. Wichtiger Hinweis zum Ausführen der Anwendung:
 # Die Funktion ui.run() wird normalerweise nicht direkt aufgerufen, wenn man `uvicorn` vom Terminal startet.
