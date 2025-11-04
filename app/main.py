@@ -468,19 +468,7 @@ def nav(user: dict):
             _side_nav_item('Übersicht', 'dashboard', '/dashboard', active=(p == '/dashboard'))
             _side_nav_item('Belege', 'receipt_long', '/receipts', active=(p == '/receipts'))
             _side_nav_item('Hochladen', 'upload', '/upload', active=(p == '/upload'))
-
-            # Optional: Einstellungen unten
-            ui.space()
             _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))
-            with ui.column().classes('gap-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3'):
-                with ui.row().classes('items-center gap-2'):
-                    ui.avatar(initials or 'S').classes('bg-indigo-500 text-white')
-                    with ui.column().classes('gap-0'):
-                        ui.label(display_name).classes('text-body2 font-semibold text-grey-9')
-                        subtitle = user.get('email') if user.get('email') else ('Gastmodus aktiv' if user.get('guest') else '')
-                        ui.label(subtitle).classes('text-caption text-grey-6')
-                ui.button('Abmelden', on_click=_logout_and_redirect)\
-                    .classes('w-full bg-indigo-500 text-white hover:bg-indigo-600 hover:-translate-y-0.5 transition-all shadow-sm')
 
 # ------------------ Monatsswitcher (Header rechts) ------------------
 GERMAN_MONTHS = [
@@ -541,9 +529,8 @@ def month_bar(username: str = 'Giuliano', on_change=None) -> None:
         with ui.row().classes('items-center gap-1 q-ml-sm'):
             ui.button(icon='chevron_left', on_click=lambda: update(-1)).props('flat round dense')
             ui.button(icon='chevron_right', on_click=lambda: update(1)).props('flat round dense')
-        with ui.row().classes('items-center gap-1 bg-white/90 backdrop-blur border rounded-full px-2 py-1 shadow-sm'):
-            ui.icon('person').classes('text-grey-7')
-            ui.label(username).classes('text-body2 font-medium')
+        with ui.row().classes('items-center bg-white/90 backdrop-blur border rounded-full px-4 py-2 shadow-sm cursor-pointer hover:bg-blue-50 transition-all').on('click', _logout_and_redirect):
+            ui.label('Logout').classes('text-body2 font-medium text-blue-600')
 
 # Login-Seite im Look der gelieferten Vorlage
 @ui.page('/login')
@@ -729,7 +716,7 @@ def home_page():
 
         ui.label('Wähle oben einen Menüpunkt aus, um zu starten.').classes('text-body2 text-grey-7')
 
-# 4. Drei Hauptregister
+# 4. Vier Hauptregister
 
 @ui.page('/upload')
 def upload_page():
