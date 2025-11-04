@@ -236,6 +236,19 @@ async def api_receipt_image(receipt_id: int):
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
 ui.run_with(app)
 
+
+# ---------- Farbkonzept (globales Theme) ----------
+ui.colors(
+    primary='linear-gradient(90deg, #3B82F6 0%, #6D28D9 100%)',  # blauer→violetter Verlauf
+    secondary='#6366F1',    # helleres Violett
+    accent='#A855F7',       # kräftiger Akzentton
+    positive='#22C55E',     # Grün für Erfolg
+    negative='#EF4444',     # Rot für Fehler
+    warning='#F59E0B',      # Orange für Warnung
+    info='#3B82F6',         # Hellblau für neutrale Hinweise
+    dark='#0B0B0B',         # Dunkler Hintergrund (falls Darkmode)
+)
+
 # ------------------ Login-Helfer ------------------
 def _get_user_store(create: bool = False) -> dict | None:
     """Liefert den benutzerspezifischen Storage (persistiert über Seitenwechsel)."""
@@ -337,7 +350,7 @@ def _get_logged_in_user() -> dict | None:
         return {
             "user_id": None,
             "email": None,
-            "name": "Gastmodus",
+            "name": "Demo-Modus",
             "guest": True,
         }
 
@@ -368,7 +381,7 @@ def _set_logged_in_user(user: dict) -> None:
 
 
 def _set_guest_user() -> None:
-    """Aktiviert den Gastmodus ohne Anmeldung."""
+    """Aktiviert den Demo-Modus ohne Anmeldung."""
     store = _get_user_store(create=True)
     if store is None:
         return
@@ -433,7 +446,7 @@ def _side_nav_item(label: str, icon: str, path: str, active: bool = False) -> No
         'transition-all'
     )
     active_cls = (
-        'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
+        'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
     )
     inactive_cls = 'text-grey-7 hover:bg-indigo-50 hover:text-indigo-700'
     with ui.row().classes(f'{base} {active_cls if active else inactive_cls}')\
@@ -444,7 +457,7 @@ def _side_nav_item(label: str, icon: str, path: str, active: bool = False) -> No
 def nav(user: dict):
     # Linke Sidebar mit Titel + Sprachchip und Haupt-Menüpunkten
     p = _current_path()
-    display_name = user.get("name") or user.get("email") or "Gast"
+    display_name = user.get("name") or user.get("email") or "Demo-Modus"
     initials = "".join(part[0] for part in display_name.split() if part).upper()[:2]
     with ui.left_drawer(value=True).props('bordered').classes(
         'w-64 bg-white/80 backdrop-blur p-4'
@@ -464,8 +477,8 @@ def nav(user: dict):
 
             ui.separator().classes('q-my-sm')
 
-            # Menüeinträge wie im Figma: Übersicht, Belege, Hochladen
-            _side_nav_item('Übersicht', 'dashboard', '/dashboard', active=(p == '/dashboard'))
+            # Menüeinträge wie im Figma: Dashboard, Belege, Hochladen
+            _side_nav_item('Dashboard', 'dashboard', '/dashboard', active=(p == '/dashboard'))
             _side_nav_item('Belege', 'receipt_long', '/receipts', active=(p == '/receipts'))
             _side_nav_item('Hochladen', 'upload', '/upload', active=(p == '/upload'))
             _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))
@@ -641,7 +654,7 @@ def login_page():
             .classes('w-full text-indigo-600 hover:text-indigo-700')
 
     with ui.element('div').classes(
-        'min-h-screen w-full bg-[#0F4CFF] flex items-center justify-center px-4 py-10'
+        'min-h-screen w-full bg-[#F4F6FB] flex items-center justify-center px-0 py-0'
     ):
         with ui.element('div').classes(
             'w-full max-w-5xl flex flex-col md:flex-row rounded-[40px] overflow-hidden '
@@ -655,37 +668,36 @@ def login_page():
                 ui.label('Behalte Einnahmen und Ausgaben jederzeit im Blick – schnell, sicher und übersichtlich.')\
                     .classes('text-body2 text-white/80 text-center max-w-xs')
 
-            with ui.column().classes('w-full md:w-1/2 bg-[#F4F6FB] items-center justify-center py-14 px-8'):
+            with ui.column().classes('w-full md:w-[45%] bg-[#F4F6FB] items-center justify-center py-14 px-8 m-0'):
                 with ui.column().classes('w-full max-w-md bg-white border border-[#E5E9F5] rounded-[28px] shadow-lg p-8 gap-5'):
                     with ui.column().classes('gap-1'):
                         ui.html("<span class='text-grey-600 text-sm uppercase tracking-[0.3em]'>Willkommen</span>", sanitize=False)
                         ui.html(
-                            "<span class='text-2xl md:text-3xl font-semibold text-grey-900'>Let's "
-                            "<span class='text-blue-600'>Sign In</span></span>",
+                            "<span class='text-2xl md:text-3xl font-semibold text-gray-800'>Einloggen ",
                             sanitize=False,
                         )
                         ui.label('Gib deine Zugangsdaten ein, um mit dem Smart Expense Tracker zu starten.')\
                             .classes('text-caption text-grey-6')
                     login_email = ui.input('E-Mail').props(
                         'dense rounded filled placeholder="name@example.com" type=email'
-                    ).classes('rounded-2xl bg-grey-1')
+                    ).classes('rounded-2xl bg-white-1')
                     with login_email.add_slot('prepend'):
                         ui.icon('mail').classes('text-blue-500')
                     login_password = ui.input('Passwort', password=True, password_toggle_button=True)\
-                        .props('dense rounded filled placeholder="••••••••"').classes('rounded-2xl bg-grey-1')
+                        .props('dense rounded filled placeholder="••••••••"').classes('rounded-2xl bg-white-1')
                     with login_password.add_slot('prepend'):
                         ui.icon('lock').classes('text-blue-500')
                     with ui.row().classes('justify-between items-center w-full'):
                         ui.link('Passwort vergessen?', '#').classes(
                             'text-caption text-blue-600 hover:underline'
                         )
-                        # Hinweis auf den Gastmodus in Deutsch für Einsteiger
-                        ui.label('Gastmodus verfügbar').classes('text-caption text-grey-5')
+                        # Hinweis auf den Demo-Modus in Deutsch für Einsteiger
                     status_label = ui.label('').classes('text-caption text-red-500 min-h-[18px]')
-                    ui.button('Sign In', on_click=lambda: asyncio.create_task(handle_login()))\
-                        .classes('w-full bg-[#0F4CFF] text-white hover:bg-blue-600 hover:-translate-y-0.5 '
-                                 'transition-all shadow-lg rounded-2xl py-3 text-button font-medium')
-                    ui.button('Ohne Anmeldung fortfahren', on_click=skip_login).props('flat')\
+                       # Sign-In-Button
+                    ui.button('Login', on_click=lambda: asyncio.create_task(handle_login()))\
+                        .classes('w-full text-white font-medium rounded-2xl py-3 shadow-lg hover:-translate-y-0.5 transition-all border-0')\
+                        .style('background:linear-gradient(90deg, #3B82F6 0%, #6D28D9 100%) !important; border:none !important;')
+                    ui.button('Im Demo-Modus fortfahren', on_click=skip_login).props('flat')\
                         .classes('w-full text-blue-600 hover:text-blue-700')
                     with ui.row().classes('justify-center gap-2 text-caption text-grey-6'):
                         ui.label('Noch kein Konto?')
@@ -779,7 +791,7 @@ def upload_page():
         # Foto aufnehmen (Uploader versteckt, Button triggert Kamera)
         with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center') as cam_card:
             with ui.column().classes('items-center justify-center gap-2'):
-                ui.icon('photo_camera').classes('text-white bg-gradient-to-br from-indigo-500 to-purple-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.icon('photo_camera').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
                 ui.label('Foto aufnehmen').classes('text-subtitle2 text-grey-9')
                 ui.label('Kamera verwenden um Beleg zu fotografieren').classes('text-caption text-grey-6')
                 cam_u = ui.upload(auto_upload=True, multiple=False)
@@ -790,7 +802,7 @@ def upload_page():
         # Datei auswählen (Uploader versteckt, Button triggert Auswahl)
         with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center'):
             with ui.column().classes('items-center justify-center gap-2'):
-                ui.icon('description').classes('text-white bg-gradient-to-br from-indigo-500 to-purple-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.icon('description').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
                 ui.label('Datei auswählen').classes('text-subtitle2 text-grey-9')
                 ui.label('PDF oder Bild von Ihrem Gerät auswählen').classes('text-caption text-grey-6')
                 file_u = ui.upload(auto_upload=True, multiple=False)
@@ -801,8 +813,8 @@ def upload_page():
         # Hier ablegen (unsichtbarer Drop-Bereich über gesamte Karte)
         with ui.card().classes('relative w-[420px] h-[240px] bg-gradient-to-br from-white to-blue-50/40 rounded-2xl shadow-md border-dashed border-2 border-grey-4 items-center justify-center'):
             with ui.column().classes('items-center justify-center gap-2 pointer-events-none'):
-                ui.icon('upload').classes('text-white bg-emerald-500 rounded-[20px] q-pa-lg').style('font-size: 32px')
-                ui.label('Hier ablegen').classes('text-subtitle2 text-grey-9')
+                ui.icon('upload').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                ui.label('Drag and Drop').classes('text-subtitle2 text-grey-9')
                 ui.label('Beleg hierher ziehen und ablegen').classes('text-caption text-grey-6')
             drop_u = ui.upload(label='', auto_upload=True, multiple=False)
             drop_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="opacity:0; position:absolute; inset:0; cursor:pointer"')
