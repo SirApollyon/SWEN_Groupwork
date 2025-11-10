@@ -236,18 +236,12 @@ async def api_receipt_image(receipt_id: int):
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
 ui.run_with(app)
 
+# Das Theme-Modul kapselt Farben und globale Styles, damit main.py aufgeräumt bleibt.
+from app.ui_theme import set_colors, set_global_styles
 
-# ---------- Farbkonzept (globales Theme) ----------
-ui.colors(
-    primary='linear-gradient(90deg, #3B82F6 0%, #6D28D9 100%)',  # blauer→violetter Verlauf
-    secondary='#6366F1',    # helleres Violett
-    accent='#A855F7',       # kräftiger Akzentton
-    positive='#22C55E',     # Grün für Erfolg
-    negative='#EF4444',     # Rot für Fehler
-    warning='#F59E0B',      # Orange für Warnung
-    info='#3B82F6',         # Hellblau für neutrale Hinweise
-    dark='#0B0B0B',         # Dunkler Hintergrund (falls Darkmode)
-)
+# Diese Aufrufe stellen sicher, dass Farben und CSS direkt zum Start gesetzt werden.
+set_colors()
+set_global_styles()
 
 # ------------------ Login-Helfer ------------------
 def _get_user_store(create: bool = False) -> dict | None:
@@ -955,12 +949,14 @@ def receipts_page():
     filtered: list[dict] = []
     category_options: list[str] = ["Alle Kategorien"]
 
+    # Dieser Seitencontainer bekommt wie die Upload-Seite einen zusätzlichen oberen Abstand, damit Überschriften nicht vom Burger-Menü verdeckt werden.
     with ui.column().classes(
-        "w-full items-center min-h-screen gap-6 q-pa-xl bg-gradient-to-b from-blue-50 to-white"
+        "w-full items-center min-h-screen gap-6 q-pa-xl bg-gradient-to-b from-blue-50 to-white pt-16 md:pt-0 transition-all z-0"
     ):
         header_row = ui.row().classes("w-full max-w-6xl items-end justify-between")
         with header_row:
-            ui.label("Belegübersicht").classes("text-h5 font-semibold text-grey-9")
+            # Dieser Titel nutzt exakt dieselbe Schriftklasse wie 'Beleg hochladen', damit alle Seiten-Überschriften identisch aussehen.
+            ui.label("Belegübersicht").classes("text-h5")
             total_count_label = ui.label("0 Belege").classes("text-caption text-grey-6")
 
         search_input = ui.input(label="").props(
@@ -1385,7 +1381,8 @@ def dashboard_page():
         update_counts()
         update_category_chart()
 
-    with ui.column().classes('w-full items-stretch justify-start min-h-screen gap-4'):
+    # Diese Spalte erhält denselben oberen Abstand wie die Upload-Seite, damit der Seitentitel auch auf mobilen Geräten sichtbar bleibt.
+    with ui.column().classes('w-full items-stretch justify-start min-h-screen gap-4 pt-16 md:pt-0 transition-all z-0'):
         # Kopfzeile: rechts ausgerichtete Monatsanzeige (nur auf Übersicht)
         with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70'):
             # Titelbereich wie im Figma (zentral/links im Content)
@@ -1439,10 +1436,12 @@ def settings_page():
         stored_budget = f'{stored_budget_raw:.2f}'
     else:
         stored_budget = str(stored_budget_raw) if stored_budget_raw else ''
+    # Auch hier sorgt der zusätzliche obere Abstand dafür, dass der Haupttitel nicht vom Drawer überlagert wird.
     with ui.column().classes(
-        'items-center justify-start min-h-screen gap-6 q-pa-md bg-slate-50'
+        'items-center justify-start min-h-screen gap-6 q-pa-md bg-slate-50 pt-16 md:pt-0 transition-all z-0'
     ):
-        ui.label('Einstellungen').classes('text-h5 text-grey-9')
+        # Der Einstellungs-Titel übernimmt genau die Schriftklasse der Upload-Seite, damit alle Seitenköpfe gleich aussehen.
+        ui.label('Einstellungen').classes('text-h5')
         settings_card = ui.card().classes(
             'w-full max-w-3xl bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70 p-6 gap-4'
         )
