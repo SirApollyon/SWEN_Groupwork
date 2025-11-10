@@ -193,6 +193,7 @@ Current tests cover the DB helpers; extend them as new features land. For lintin
 | --- | --- | --- |
 | `POST` | `/api/upload` | Uploads a receipt image for a given `user_id`, stores it, and immediately runs the analyzer. |
 | `POST` | `/api/receipts/{receipt_id}/analyze` | Re-runs the analyzer for an existing receipt (uses optional `user_id`). |
+| `DELETE` | `/api/receipts/{receipt_id}` | Removes a stored receipt (optionally enforcing ownership via `user_id`) and detaches linked transactions. |
 | `GET` | `/health` | Lightweight readiness check used for monitoring. |
 | `GET` | `/docs` | Swagger UI (FastAPI auto-generated, hosted at https://smart-expense-tracker-530070868085.europe-west8.run.app/docs#/). |
 

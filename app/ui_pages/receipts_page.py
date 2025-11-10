@@ -6,7 +6,7 @@ import asyncio
 
 from nicegui import ui
 
-from app.db import get_receipt_detail, list_receipts_overview
+from app.db import delete_receipt, get_receipt_detail, list_receipts_overview
 from app.helpers.auth_helpers import _ensure_authenticated
 from app.helpers.receipt_helpers import (
     CATEGORY_BADGE_BASE,
@@ -254,13 +254,45 @@ def receipts_page():
                         ui.label(amount_value).classes(
                             "text-subtitle1 font-semibold text-grey-8"
                         )
-                        with ui.row().classes("justify-between items-center"):
-                            ui.label(category_name).classes(
-                                f"{CATEGORY_BADGE_BASE} {category_classes}"
+                        with ui.row().classes(
+                            "items-end justify-between gap-2 w-full"
+                        ):
+                            with ui.row().classes("items-center gap-2"):
+                                ui.label(category_name).classes(
+                                    f"{CATEGORY_BADGE_BASE} {category_classes}"
+                                )
+                                ui.label(status_style["label"]).classes(
+                                    f"{STATUS_BADGE_BASE} {status_style['classes']}"
+                                )
+                            delete_icon = ui.icon("delete_outline").classes(
+                                "receipt-delete-icon text-grey-5 hover:text-red-500 cursor-pointer text-2xl transition-colors"
                             )
-                            ui.label(status_style["label"]).classes(
-                                f"{STATUS_BADGE_BASE} {status_style['classes']}"
+                            delete_icon.on(
+                                "click.stop",
+                                lambda e, rid=receipt_id: handle_delete_click(rid),
                             )
+
+
+    async def handle_delete_click(receipt_id: int) -> None:
+        nonlocal receipts, filtered
+        try:
+            await asyncio.to_thread(
+                delete_receipt,
+                receipt_id,
+                user_id=user.get("user_id"),
+            )
+        except ValueError as exc:
+            ui.notify(str(exc), color="negative")
+            return
+        except Exception as exc:
+            ui.notify(f"Beleg konnte nicht gelöscht werden: {exc}", color="negative")
+            return
+
+        receipts = [r for r in receipts if r.get("receipt_id") != receipt_id]
+        filtered = [r for r in filtered if r.get("receipt_id") != receipt_id]
+        render_cards()
+        ui.notify("Beleg wurde gelöscht.", color="positive")
+
 
     async def show_receipt_detail(receipt_id: int) -> None:
         detail_dialog.open()

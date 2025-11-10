@@ -433,6 +433,50 @@ def get_receipt_detail(receipt_id: int) -> dict:
     }
 
 
+def delete_receipt(receipt_id: int, *, user_id: int | None = None) -> None:
+    """
+    L?scht einen Beleg und entfernt zugeh?rige Verkn?pfungen.
+
+    Args:
+        receipt_id: Die zu l?schende ID.
+        user_id: Optionaler Besitzer-Check.
+    """
+    if not receipt_id:
+        raise ValueError("Es muss eine g?ltige Receipt-ID angegeben werden.")
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            if user_id is None:
+                cur.execute(
+                    "SELECT receipt_id FROM app.receipts WHERE receipt_id=%s",
+                    (receipt_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT receipt_id
+                    FROM app.receipts
+                    WHERE receipt_id=%s AND user_id=%s
+                    """,
+                    (receipt_id, user_id),
+                )
+            if not cur.fetchone():
+                raise ValueError(
+                    "Beleg wurde nicht gefunden oder geh?rt einem anderen Benutzer."
+                )
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE app.transactions SET receipt_id=NULL WHERE receipt_id=%s",
+                (receipt_id,),
+            )
+            cur.execute(
+                "DELETE FROM app.receipts WHERE receipt_id=%s",
+                (receipt_id,),
+            )
+            conn.commit()
+
+
 def load_receipt_image(receipt_id: int) -> dict:
     """
     Lädt das Bild und die zugehörigen Metadaten für eine bestimmte Beleg-ID.

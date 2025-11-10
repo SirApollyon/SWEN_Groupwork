@@ -14,7 +14,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from nicegui import storage as ng_storage, ui
 
-from app.db import insert_receipt, load_receipt_image
+from app.db import delete_receipt, insert_receipt, load_receipt_image
 from app.helpers.auth_helpers import _ensure_authenticated  # noqa: F401  # Für spätere Programmlogik verfügbar halten
 from app.helpers.receipt_helpers import _guess_image_media_type
 from app.receipt_analysis import analyze_receipt
@@ -111,6 +111,20 @@ async def api_receipt_image(receipt_id: int):
 
     media_type = _guess_image_media_type(image_bytes)
     return Response(content=image_bytes, media_type=media_type)
+
+
+@app.delete("/api/receipts/{receipt_id}")
+async def api_delete_receipt(receipt_id: int, user_id: int | None = None):
+    """Löscht einen bestehenden Beleg endgültig."""
+    try:
+        await asyncio.to_thread(delete_receipt, receipt_id, user_id=user_id)
+    except ValueError as exc:
+        message = str(exc)
+        status = 404 if "nicht gefunden" in message.lower() else 400
+        raise HTTPException(status_code=status, detail=message) from exc
+    except Exception as exc:  # pragma: no cover - defensive logging
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"ok": True, "receipt_id": receipt_id}
 
 
 # 2. NiceGUI an die FastAPI-App anbinden (nach den API-Routen, damit Catch-All-Routen nicht dazwischenfunken)
