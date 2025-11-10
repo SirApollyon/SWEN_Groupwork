@@ -10,6 +10,12 @@ THEME: dict[str, object] = {
     "padding": "p-6 md:p-10",
 }
 
+# Einheitliche Card-Klasse speziell für die Upload-Kacheln.
+UPLOAD_CARD = (
+    'w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border '
+    'border-white/70 items-center justify-center transition-transform duration-300 ease-in-out'
+)
+
 
 def set_colors() -> None:
     """Richtet die globale Farbpalette samt Gradient ein, damit alle Komponenten das gleiche Farbschema haben."""
@@ -37,17 +43,24 @@ def set_global_styles() -> None:
             /* Lädt die gewünschten Google-Fonts und stellt sicher, dass sie überall verfügbar sind. */
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600&display=swap');
 
+            :root {
+                --font-base: 'Inter', 'Roboto', sans-serif;
+                --font-heading: 'Poppins', 'Inter', sans-serif;
+                --bg-page: #F4F6FB;
+                --text-base: #1f2937;
+            }
+
             /* Setzt Grundlayout und Schriftarten für den gesamten Body. */
             body {
-                font-family: 'Inter', 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-                background: #F4F6FB;
-                color: #1f2937;
+                font-family: var(--font-base);
+                background: var(--bg-page);
+                color: var(--text-base);
                 margin: 0;
             }
 
             /* Hebt Überschriften hervor, damit sie klar erkennbar sind. */
             h1, h2, h3, h4, h5, h6 {
-                font-family: 'Poppins', 'Inter', sans-serif;
+                font-family: var(--font-heading);
                 color: #1f2a44;
             }
 
