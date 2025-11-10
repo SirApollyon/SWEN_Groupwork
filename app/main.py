@@ -762,78 +762,80 @@ def upload_page():
             ui.button('Zur Anmeldung', on_click=lambda: ui.navigate.to('/login'))\
                 .classes('bg-indigo-500 text-white hover:bg-indigo-600')
         return
-    # Neuer Header und Karten im Figma-Stil
-    with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70'):
-        with ui.column().classes('gap-0'):
-            ui.label('Beleg hochladen').classes('text-h5')
-            ui.label('Neue Belege hinzufügen und verarbeiten').classes('text-caption text-grey-6')
-        with ui.row().classes('items-center gap-2'):
-            ui.label('Unterstützte Formate').classes('text-caption text-grey-6')
-            ui.link('JPG, PNG, PDF', '#').classes('text-indigo-600 text-caption no-underline')
+    # Diese Spalte fügt auf mobilen Geräten extra oberen Abstand hinzu, damit Überschriften nicht vom Burger-Menü verdeckt werden.
+    with ui.column().classes('w-full pt-16 md:pt-0 transition-all z-0'):
+        # Der Kopfbereich bleibt gestalterisch unverändert, bekommt aber den gleichen z-index wie der restliche Inhalt.
+        with ui.row().classes('w-full items-end justify-between q-pl-md q-pr-xl q-pt-sm q-pb-sm bg-gradient-to-r from-white to-blue-50/30 border-b border-white/70 z-0'):
+            with ui.column().classes('gap-0'):
+                ui.label('Beleg hochladen').classes('text-h5')
+                ui.label('Neue Belege hinzufügen und verarbeiten').classes('text-caption text-grey-6')
+            with ui.row().classes('items-center gap-2'):
+                ui.label('Unterstützte Formate').classes('text-caption text-grey-6')
+                ui.link('JPG, PNG, PDF', '#').classes('text-indigo-600 text-caption no-underline')
 
-    status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
-    user_input = ui.number(label='Benutzer-ID', value=user['user_id'], min=1)\
-        .props('dense outlined readonly').classes('q-ml-md').style('max-width: 160px')
-    user_input.disable()
+        status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
+        user_input = ui.number(label='Benutzer-ID', value=user['user_id'], min=1)\
+            .props('dense outlined readonly').classes('q-ml-md').style('max-width: 160px')
+        user_input.disable()
 
-    async def run_full_flow(selected: dict | None) -> None:
-        if not selected:
-            ui.notify('Bitte zuerst eine Datei auswählen.', color='warning')
-            return
-        try:
-            user_id = int(user_input.value or 1)
-            status_label.set_text('Beleg wird hochgeladen und gespeichert …')
-            upload_result = await asyncio.to_thread(
-                process_receipt_upload,
-                user_id,
-                selected.get('content'),
-                selected.get('name'),
-            )
-            status_label.set_text('Analyse wird durchgeführt …')
-            analysis = await analyze_receipt(upload_result['receipt_id'], user_id)
-            upload_result['analysis'] = analysis
-            status_label.set_text('Upload & Analyse erfolgreich.')
-            ui.notify('Beleg verarbeitet', color='positive')
-        except Exception as error:
-            status_label.set_text(f'Fehler: {error!s}')
-            ui.notify(f'Fehler: {error!s}', color='negative')
+        async def run_full_flow(selected: dict | None) -> None:
+            if not selected:
+                ui.notify('Bitte zuerst eine Datei auswählen.', color='warning')
+                return
+            try:
+                user_id = int(user_input.value or 1)
+                status_label.set_text('Beleg wird hochgeladen und gespeichert …')
+                upload_result = await asyncio.to_thread(
+                    process_receipt_upload,
+                    user_id,
+                    selected.get('content'),
+                    selected.get('name'),
+                )
+                status_label.set_text('Analyse wird durchgeführt …')
+                analysis = await analyze_receipt(upload_result['receipt_id'], user_id)
+                upload_result['analysis'] = analysis
+                status_label.set_text('Upload & Analyse erfolgreich.')
+                ui.notify('Beleg verarbeitet', color='positive')
+            except Exception as error:
+                status_label.set_text(f'Fehler: {error!s}')
+                ui.notify(f'Fehler: {error!s}', color='negative')
 
-    async def handle_upload(event) -> None:
-        file_info = {"name": event.file.name or 'receipt.bin', "content": await event.file.read()}
-        await run_full_flow(file_info)
+        async def handle_upload(event) -> None:
+            file_info = {"name": event.file.name or 'receipt.bin', "content": await event.file.read()}
+            await run_full_flow(file_info)
 
-    with ui.row().classes('w-full gap-4 q-px-md q-pt-md q-pb-lg'):
-        # Foto aufnehmen (Uploader versteckt, Button triggert Kamera)
-        with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center') as cam_card:
-            with ui.column().classes('items-center justify-center gap-2'):
-                ui.icon('photo_camera').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
-                ui.label('Foto aufnehmen').classes('text-subtitle2 text-grey-9')
-                ui.label('Kamera verwenden um Beleg zu fotografieren').classes('text-caption text-grey-6')
-                cam_u = ui.upload(auto_upload=True, multiple=False)
-                cam_u.props('accept="image/*" capture=environment style="display:none"')
-                ui.button(icon='add', on_click=lambda: cam_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
-                cam_u.on_upload(handle_upload)
+        with ui.row().classes('w-full gap-4 q-px-md q-pt-md q-pb-lg flex-wrap items-stretch z-0'):
+            # Diese Karte ist nur auf Smartphones und Tablets sichtbar und startet direkt die Kamera.
+            with ui.card().classes('flex md:hidden w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center transition-transform duration-300 ease-in-out'):
+                with ui.column().classes('items-center justify-center gap-2'):
+                    ui.icon('photo_camera').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                    ui.label('Foto aufnehmen').classes('text-subtitle2 text-grey-9')
+                    ui.label('Kamera verwenden um Beleg zu fotografieren').classes('text-caption text-grey-6')
+                    cam_u = ui.upload(auto_upload=True, multiple=False)
+                    cam_u.props('accept="image/*" capture=environment style="display:none"')
+                    ui.button(icon='add', on_click=lambda: cam_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                    cam_u.on_upload(handle_upload)
 
-        # Datei auswählen (Uploader versteckt, Button triggert Auswahl)
-        with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center'):
-            with ui.column().classes('items-center justify-center gap-2'):
-                ui.icon('description').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
-                ui.label('Datei auswählen').classes('text-subtitle2 text-grey-9')
-                ui.label('PDF oder Bild von Ihrem Gerät auswählen').classes('text-caption text-grey-6')
-                file_u = ui.upload(auto_upload=True, multiple=False)
-                file_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="display:none"')
-                ui.button(icon='add', on_click=lambda: file_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
-                file_u.on_upload(handle_upload)
+            # Diese Karte bleibt auf allen Geräten sichtbar und deckt den klassischen Datei-Upload ab.
+            with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center transition-transform duration-300 ease-in-out'):
+                with ui.column().classes('items-center justify-center gap-2'):
+                    ui.icon('description').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                    ui.label('Datei auswählen').classes('text-subtitle2 text-grey-9')
+                    ui.label('PDF oder Bild von Ihrem Gerät auswählen').classes('text-caption text-grey-6')
+                    file_u = ui.upload(auto_upload=True, multiple=False)
+                    file_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="display:none"')
+                    ui.button(icon='add', on_click=lambda: file_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                    file_u.on_upload(handle_upload)
 
-        # Hier ablegen (unsichtbarer Drop-Bereich über gesamte Karte)
-        with ui.card().classes('relative w-[420px] h-[240px] bg-gradient-to-br from-white to-blue-50/40 rounded-2xl shadow-md border-dashed border-2 border-grey-4 items-center justify-center'):
-            with ui.column().classes('items-center justify-center gap-2 pointer-events-none'):
-                ui.icon('upload').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
-                ui.label('Drag and Drop').classes('text-subtitle2 text-grey-9')
-                ui.label('Beleg hierher ziehen und ablegen').classes('text-caption text-grey-6')
-            drop_u = ui.upload(label='', auto_upload=True, multiple=False)
-            drop_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="opacity:0; position:absolute; inset:0; cursor:pointer"')
-            drop_u.on_upload(handle_upload)
+            # Diese Karte blendet sich auf Touch-Geräten aus und bietet Drag & Drop für große Bildschirme.
+            with ui.card().classes('hidden md:flex relative w-[420px] h-[240px] bg-gradient-to-br from-white to-blue-50/40 rounded-2xl shadow-md border-dashed border-2 border-grey-4 items-center justify-center transition-transform duration-300 ease-in-out'):
+                with ui.column().classes('items-center justify-center gap-2 pointer-events-none'):
+                    ui.icon('upload').classes('text-white bg-gradient-to-br from-blue-500 to-blue-700 rounded-[20px] q-pa-lg').style('font-size: 32px')
+                    ui.label('Drag and Drop').classes('text-subtitle2 text-grey-9')
+                    ui.label('Beleg hierher ziehen und ablegen').classes('text-caption text-grey-6')
+                drop_u = ui.upload(label='', auto_upload=True, multiple=False)
+                drop_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="opacity:0; position:absolute; inset:0; cursor:pointer"')
+                drop_u.on_upload(handle_upload)
 
     # Alte Umsetzung überspringen
     return
