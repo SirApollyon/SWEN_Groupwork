@@ -648,7 +648,7 @@ def login_page():
         with signup_password_confirm.add_slot('prepend'):
             ui.icon('lock_reset').classes('text-indigo-500')
         signup_status = ui.label('').classes('text-caption text-red-500 min-h-[18px]')
-        ui.button('Registrieren', on_click=lambda: asyncio.create_task(handle_signup()))\
+        ui.button('Registrieren', on_click=handle_signup)\
             .classes('w-full bg-indigo-500 text-white hover:bg-indigo-600 hover:-translate-y-0.5 transition-all shadow-lg rounded-xl')
         ui.button('Abbrechen', on_click=signup_dialog.close).props('flat')\
             .classes('w-full text-indigo-600 hover:text-indigo-700')
@@ -694,7 +694,7 @@ def login_page():
                         # Hinweis auf den Demo-Modus in Deutsch für Einsteiger
                     status_label = ui.label('').classes('text-caption text-red-500 min-h-[18px]')
                        # Sign-In-Button
-                    ui.button('Login', on_click=lambda: asyncio.create_task(handle_login()))\
+                    ui.button('Login', on_click=handle_login)\
                         .classes('w-full text-white font-medium rounded-2xl py-3 shadow-lg hover:-translate-y-0.5 transition-all border-0')\
                         .style('background:linear-gradient(90deg, #3B82F6 0%, #6D28D9 100%) !important; border:none !important;')
                     ui.button('Im Demo-Modus fortfahren', on_click=skip_login).props('flat')\
@@ -797,7 +797,7 @@ def upload_page():
                 cam_u = ui.upload(auto_upload=True, multiple=False)
                 cam_u.props('accept="image/*" capture=environment style="display:none"')
                 ui.button(icon='add', on_click=lambda: cam_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
-                cam_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+                cam_u.on_upload(handle_upload)
 
         # Datei auswählen (Uploader versteckt, Button triggert Auswahl)
         with ui.card().classes('w-[420px] h-[240px] bg-white/95 rounded-2xl shadow-md border border-white/70 items-center justify-center'):
@@ -808,7 +808,7 @@ def upload_page():
                 file_u = ui.upload(auto_upload=True, multiple=False)
                 file_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="display:none"')
                 ui.button(icon='add', on_click=lambda: file_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
-                file_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+                file_u.on_upload(handle_upload)
 
         # Hier ablegen (unsichtbarer Drop-Bereich über gesamte Karte)
         with ui.card().classes('relative w-[420px] h-[240px] bg-gradient-to-br from-white to-blue-50/40 rounded-2xl shadow-md border-dashed border-2 border-grey-4 items-center justify-center'):
@@ -818,7 +818,7 @@ def upload_page():
                 ui.label('Beleg hierher ziehen und ablegen').classes('text-caption text-grey-6')
             drop_u = ui.upload(label='', auto_upload=True, multiple=False)
             drop_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="opacity:0; position:absolute; inset:0; cursor:pointer"')
-            drop_u.on_upload(lambda e: asyncio.create_task(handle_upload(e)))
+            drop_u.on_upload(handle_upload)
 
     # Alte Umsetzung überspringen
     return
@@ -1133,9 +1133,7 @@ def receipts_page():
                 )
                 card.on(
                     "click",
-                    lambda e, rid=receipt_id: asyncio.create_task(
-                        show_receipt_detail(rid)
-                    ),
+                    lambda e, rid=receipt_id: show_receipt_detail(rid),
                 )
                 with card:
                     ui.image(image_source).classes("w-full h-40 object-cover").props(
@@ -1271,7 +1269,7 @@ def receipts_page():
 
     search_input.on("update:model-value", lambda e: apply_filters())
     category_select.on("update:model-value", lambda e: apply_filters())
-    ui.timer(0.1, lambda: asyncio.create_task(load_data()), once=True)
+    ui.timer(0.1, load_data, once=True)
 @ui.page('/dashboard')
 def dashboard_page():
     user = _ensure_authenticated()
@@ -1407,7 +1405,7 @@ def dashboard_page():
                         category_chart = ui.echart({'series': []}).classes('w-[320px] h-[240px]')
                     legend_container = ui.column().classes('gap-2')
 
-        ui.timer(0.1, lambda: asyncio.create_task(load_receipts()), once=True)
+    ui.timer(0.1, load_receipts, once=True)
 
 @ui.page('/settings')
 def settings_page():
