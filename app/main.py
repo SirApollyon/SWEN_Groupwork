@@ -459,16 +459,21 @@ def nav(user: dict):
     p = _current_path()
     display_name = user.get("name") or user.get("email") or "Demo-Modus"
     initials = "".join(part[0] for part in display_name.split() if part).upper()[:2]
-    with ui.left_drawer(value=True).props('bordered').classes(
-        'w-64 bg-white/80 backdrop-blur p-4'
-    ):
+
+    # Responsive Drawer: bleibt auf Desktop fest verankert und slidet auf Mobile weich ein/aus.
+    with ui.left_drawer(value=False).props('bordered show-if-above').classes(
+        'w-64 bg-white/80 backdrop-blur p-4 transition-transform duration-300 ease-in-out md:static md:translate-x-0'
+    ) as drawer:
         with ui.column().classes('gap-3'):
-            # Header der App
+            # Drawer-Header mit Menübutton (nur mobil sichtbar) zum Ein-/Ausblenden der Sidebar.
             with ui.row().classes('items-center justify-between'):
+                ui.button(icon='menu', on_click=lambda: drawer.toggle())\
+                    .props('flat round dense')\
+                    .classes('md:hidden text-indigo-600')
                 with ui.column().classes('gap-0'):
                     ui.label('Smart Expense Tracker').classes('text-subtitle1 font-semibold')
                     ui.label('Ihre persönliche Finanzübersicht').classes('text-caption text-grey-6')
-                # Sprachchip (ohne Funktion, rein visuell)
+                # Sprachchip (rein visuell) bleibt erhalten.
                 with ui.row().classes(
                     'items-center gap-1 px-2 py-1 rounded-full bg-grey-1 text-grey-7 border'
                 ):
@@ -482,6 +487,16 @@ def nav(user: dict):
             _side_nav_item('Belege', 'receipt_long', '/receipts', active=(p == '/receipts'))
             _side_nav_item('Hochladen', 'upload', '/upload', active=(p == '/upload'))
             _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))
+
+    # Mobiler Toggle-Button ausserhalb des Drawers, damit die Navigation auch bei eingeklappter Sidebar erreichbar bleibt.
+    with ui.row().classes(
+        'md:hidden fixed top-4 left-4 z-50 items-center gap-2 bg-white/90 backdrop-blur '
+        'border border-white/80 shadow-lg rounded-full px-3 py-2'
+    ):
+        ui.button(icon='menu', on_click=lambda: drawer.toggle())\
+            .props('flat round dense')\
+            .classes('text-indigo-600')
+        ui.label('Smart Expense Tracker').classes('text-caption font-medium text-grey-7')
 
 # ------------------ Monatsswitcher (Header rechts) ------------------
 GERMAN_MONTHS = [
