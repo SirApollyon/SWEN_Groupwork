@@ -290,8 +290,8 @@ def receipts_page():
 
         receipts = [r for r in receipts if r.get("receipt_id") != receipt_id]
         filtered = [r for r in filtered if r.get("receipt_id") != receipt_id]
-        render_cards()
         ui.notify("Beleg wurde gelöscht.", color="positive")
+        render_cards()
 
 
     async def show_receipt_detail(receipt_id: int) -> None:

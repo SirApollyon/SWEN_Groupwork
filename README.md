@@ -206,7 +206,7 @@ The `/api/upload` endpoint expects `multipart/form-data` with fields `file` (bin
 - **`uvicorn` command not found**: run `python -m uvicorn ...` or reinstall dependencies inside the active environment.
 - **Database connection failures**: verify that your IP is allowed to reach Azure SQL and that TLS / firewall settings permit the connection.
 - **Google GenAI errors**: double-check `GOOGLE_API_KEY`, project quotas, and the selected `GOOGLE_RECEIPT_MODEL`.
-- **Large uploads rejected**: files above 20 MB are blocked by the application (see `MAX_BYTES` in `app/main.py`).
+- **Large uploads rejected**: files above 20 MB are blocked by the application (see `MAX_BYTES` in `app/services/receipt_upload_service.py`).
 
 ---
 

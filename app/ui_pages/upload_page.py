@@ -10,6 +10,7 @@ from app.helpers.auth_helpers import _ensure_authenticated
 from app.helpers.ui_helpers import notify_error, notify_success
 from app.ui_layout import nav
 from app.receipt_analysis import analyze_receipt
+from app.services.receipt_upload_service import process_receipt_upload
 from app.ui_theme import UPLOAD_CARD
 
 
@@ -20,6 +21,7 @@ def upload_page():
     if not user:
         return
     nav(user)
+    user_id = int(user.get('user_id') or 0)
     if user.get('guest'):
         with ui.column().classes('items-center justify-center min-h-screen gap-4 q-pa-xl text-center'):
             ui.icon('lock').classes('text-4xl text-indigo-500')
@@ -43,20 +45,13 @@ def upload_page():
                 ui.link('JPG, PNG, PDF', '#').classes('text-indigo-600 text-caption no-underline')
 
         status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
-        user_input = ui.number(label='Benutzer-ID', value=user['user_id'], min=1)\
-            .props('dense outlined readonly').classes('q-ml-md').style('max-width: 160px')
-        user_input.disable()
 
         async def run_full_flow(selected: dict | None) -> None:
-            """Startet Upload + Analyse; importiert process_receipt_upload erst bei Bedarf, um Kreisimporte zu vermeiden."""
+            """Startet Upload + Analyse für die gewählte Datei."""
             if not selected:
                 notify_error('Bitte zuerst eine Datei auswählen.')
                 return
             try:
-                # Lokaler Import, damit dieses Modul unabhängig von main.py geladen werden kann.
-                from app.main import process_receipt_upload
-
-                user_id = int(user_input.value or 1)
                 status_label.set_text('Beleg wird hochgeladen und gespeichert …')
                 upload_result = await asyncio.to_thread(
                     process_receipt_upload,

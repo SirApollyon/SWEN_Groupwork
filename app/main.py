@@ -14,10 +14,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from nicegui import storage as ng_storage, ui
 
-from app.db import delete_receipt, insert_receipt, load_receipt_image
+from app.db import delete_receipt, load_receipt_image
 from app.helpers.auth_helpers import _ensure_authenticated  # noqa: F401  # Für spätere Programmlogik verfügbar halten
 from app.helpers.receipt_helpers import _guess_image_media_type
 from app.receipt_analysis import analyze_receipt
+from app.services.receipt_upload_service import process_receipt_upload
 from app.ui_layout import nav  # noqa: F401  # Wird von den ausgelagerten Seiten genutzt
 
 # 1. Erstellen der FastAPI-App
@@ -26,40 +27,6 @@ app = FastAPI(title="Smart Expense Tracker")
 
 # NiceGUI-Storage aktivieren (für Benutzerzustand über Seitenwechsel hinweg)
 ng_storage.set_storage_secret(os.getenv("NICEGUI_STORAGE_SECRET", "smart-expense-secret"))
-
-# Maximale Dateigröße für den Upload festlegen (hier 20 Megabyte)
-MAX_BYTES = 20 * 1024 * 1024
-
-
-def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -> dict:
-    """
-    Überprüft die hochgeladene Datei und speichert sie in der Datenbank.
-
-    Args:
-        user_id: Die ID des Benutzers, der den Beleg hochlädt.
-        content: Der Inhalt der Datei als Bytes.
-        filename: Der ursprüngliche Dateiname.
-
-    Returns:
-        Ein Dictionary mit dem Ergebnis des Speichervorgangs.
-
-    Raises:
-        ValueError: Wenn die Datei leer ist oder die maximale Größe überschreitet.
-    """
-    if not content:
-        raise ValueError("Die hochgeladene Datei ist leer.")
-    if len(content) > MAX_BYTES:
-        raise ValueError("Die Datei ist zu groß (maximal 20 MB).")
-
-    db_result = insert_receipt(user_id, content)
-    result = {
-        "ok": True,
-        "filename": filename or "upload.bin",
-        "size_bytes": len(content),
-    }
-    result.update(db_result)
-    return result
-
 
 @app.post("/api/upload")
 async def api_upload(file: UploadFile = File(...), user_id: int = Form(...)):
