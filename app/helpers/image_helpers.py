@@ -1,4 +1,4 @@
-"""Helper utilities for normalizing uploaded receipt images."""
+"""Hilfsfunktionen zur Normalisierung hochgeladener Belegbilder."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ _HEIF_BRANDS = {
 
 
 def _is_probably_heif(payload: bytes) -> bool:
-    """Lightweight detection of HEIC/HEIF containers via ftyp brand."""
+    """Erkennt HEIC/HEIF-Container grob anhand des ftyp-Headers."""
     return (
         len(payload) > 12
         and payload[4:8] == b"ftyp"
@@ -40,7 +40,7 @@ def _is_probably_heif(payload: bytes) -> bool:
 
 
 def _resize_if_needed(image: Image.Image, max_edge: int = 3200) -> Image.Image:
-    """Downscale very large photos to keep uploads lightweight."""
+    """Skaliert sehr große Fotos herunter, damit Uploads schlank bleiben."""
     width, height = image.size
     longest = max(width, height)
     if longest <= max_edge:
@@ -52,11 +52,11 @@ def _resize_if_needed(image: Image.Image, max_edge: int = 3200) -> Image.Image:
 
 def normalize_upload_image(data: bytes) -> Tuple[bytes, str | None]:
     """
-    Ensure uploaded images are browser- and model-friendly.
+    Sorgt dafür, dass hochgeladene Bilder von Browser und Modellen verarbeitet werden können.
 
-    Converts HEIC/HEIF files to JPEG (RGB) so they render in browsers and can be
-    processed by downstream libraries. Returns the potentially converted bytes
-    plus the resulting MIME type (None if unchanged).
+    HEIC/HEIF-Dateien werden bei Bedarf nach JPEG (RGB) konvertiert, damit sie sich anzeigen
+    und weiterverarbeiten lassen. Zurückgegeben werden die (ggf. konvertierten) Bytes sowie
+    der ermittelte MIME-Typ (`None`, falls unverändert).
     """
     if _is_probably_heif(data):
         if pillow_heif is None:
@@ -70,6 +70,3 @@ def normalize_upload_image(data: bytes) -> Tuple[bytes, str | None]:
             rgb_image.save(buffer, format="JPEG", quality=90, optimize=True)
             return buffer.getvalue(), "image/jpeg"
     return data, None
-
-
-__all__ = ["normalize_upload_image"]

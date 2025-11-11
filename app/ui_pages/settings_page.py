@@ -58,6 +58,7 @@ def settings_page():
                 status_label = ui.label('').classes('text-caption min-h-[20px] text-grey-7')
 
                 def save_settings() -> None:
+                    """Speichert die Formularwerte im User-Store und zeigt Feedback im Formular an."""
                     first_name = (first_name_input.value or '').strip()
                     last_name = (last_name_input.value or '').strip()
                     budget_raw = (budget_input.value or '').strip().replace(' ', '')

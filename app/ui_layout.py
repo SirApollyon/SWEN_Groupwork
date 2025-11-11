@@ -127,6 +127,7 @@ def month_bar(username: str = 'Giuliano', on_change=None) -> None:
     current = get_selected_month()
 
     def update(delta: int) -> None:
+        """Verschiebt den ausgewählten Monat um `delta` und aktualisiert die abhängigen Anzeigen."""
         nonlocal current
         current = _shift_month(current, delta)
         set_selected_month(current)

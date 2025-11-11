@@ -1,4 +1,4 @@
-"""Business logic for validating and storing uploaded receipt files."""
+"""Geschäftslogik zum Validieren und Speichern hochgeladener Belegdateien."""
 
 from __future__ import annotations
 
@@ -10,18 +10,18 @@ MAX_BYTES = 20 * 1024 * 1024  # 20 MB safety limit after normalization
 
 def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -> dict:
     """
-    Validates an uploaded file and persists it using the database layer.
+    Prüft eine hochgeladene Datei und speichert sie über die Datenbankschicht.
 
-    Args:
-        user_id: ID of the user performing the upload.
-        content: Raw file contents.
-        filename: Optional original filename (used for metadata only).
+    Parameter:
+        user_id: Benutzer-ID, der der Beleg zugeordnet wird.
+        content: Rohbytes der Datei.
+        filename: Optionaler ursprünglicher Dateiname (nur für Metadaten).
 
-    Returns:
-        dict: database metadata about the stored receipt plus file info.
+    Rückgabe:
+        dict mit den gespeicherten Metadaten zum Beleg.
 
-    Raises:
-        ValueError: if the file is empty or exceeds the max size.
+    Ausnahmen:
+        ValueError: Wenn die Datei leer ist oder das Größenlimit überschreitet.
     """
     if not content:
         raise ValueError("Die hochgeladene Datei ist leer.")
@@ -40,6 +40,3 @@ def process_receipt_upload(user_id: int, content: bytes, filename: str | None) -
         result["mime_type"] = mime_type
     result.update(db_result)
     return result
-
-
-__all__ = ["process_receipt_upload", "MAX_BYTES"]

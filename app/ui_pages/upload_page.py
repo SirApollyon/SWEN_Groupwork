@@ -46,18 +46,19 @@ def upload_page():
 
         status_label = ui.label('').classes('text-caption text-grey-6 q-ml-md q-mt-sm')
 
-        async def run_full_flow(selected: dict | None) -> None:
-            """Startet Upload + Analyse für die gewählte Datei."""
-            if not selected:
+        async def process_selected_file(file_name: str | None, file_content: bytes | None) -> None:
+            """Führt Upload und Analyse Schritt für Schritt aus."""
+            if not file_content:
                 notify_error('Bitte zuerst eine Datei auswählen.')
                 return
+            safe_name = file_name or 'receipt.bin'
             try:
                 status_label.set_text('Beleg wird hochgeladen und gespeichert …')
                 upload_result = await asyncio.to_thread(
                     process_receipt_upload,
                     user_id,
-                    selected.get('content'),
-                    selected.get('name'),
+                    file_content,
+                    safe_name,
                 )
                 status_label.set_text('Analyse wird durchgeführt …')
                 analysis = await analyze_receipt(upload_result['receipt_id'], user_id)
@@ -69,8 +70,9 @@ def upload_page():
                 notify_error(str(error))
 
         async def handle_upload(event) -> None:
-            file_info = {"name": event.file.name or 'receipt.bin', "content": await event.file.read()}
-            await run_full_flow(file_info)
+            """Liest die NiceGUI-Upload-Daten aus und startet die asynchrone Verarbeitung."""
+            file_bytes = await event.file.read()
+            await process_selected_file(event.file.name, file_bytes)
 
         with ui.row().classes('w-full gap-4 q-px-md q-pt-md q-pb-lg flex-wrap items-stretch z-0'):
             # Mobile + Tablets (<1024px) sehen die Kamera-Kachel, damit vor Ort Fotos möglich bleiben.
@@ -81,7 +83,9 @@ def upload_page():
                     ui.label('Kamera verwenden um Beleg zu fotografieren').classes('text-caption text-grey-6')
                     cam_u = ui.upload(auto_upload=True, multiple=False)
                     cam_u.props('accept="image/*" capture=environment style="display:none"')
-                    ui.button(icon='add', on_click=lambda: cam_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                    def open_camera_picker() -> None:
+                        cam_u.run_method('pickFiles')
+                    ui.button(icon='add', on_click=open_camera_picker).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
                     cam_u.on_upload(handle_upload)
 
             with ui.card().classes(f'flex {UPLOAD_CARD}'):
@@ -91,7 +95,9 @@ def upload_page():
                     ui.label('PDF oder Bild von Ihrem Gerät auswählen').classes('text-caption text-grey-6')
                     file_u = ui.upload(auto_upload=True, multiple=False)
                     file_u.props('accept=".pdf,.heic,.heif,.jpg,.jpeg,.png,.webp,image/*" style="display:none"')
-                    ui.button(icon='add', on_click=lambda: file_u.run_method('pickFiles')).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
+                    def open_file_picker() -> None:
+                        file_u.run_method('pickFiles')
+                    ui.button(icon='add', on_click=open_file_picker).props('round dense flat').classes('bg-indigo-50 text-indigo-700 hover:bg-indigo-100')
                     file_u.on_upload(handle_upload)
 
             # Tablets (>=768px) und Desktop bekommen zusätzlich Drag & Drop.

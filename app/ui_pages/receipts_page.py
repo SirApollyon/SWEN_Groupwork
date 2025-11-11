@@ -137,6 +137,7 @@ def receipts_page():
             )
 
     def update_header() -> None:
+        """Aktualisiert die Kopfzeile mit der Anzahl der aktuell sichtbaren Belege."""
         if not receipts:
             total_count_label.set_text("Keine Belege vorhanden")
         else:
@@ -145,6 +146,7 @@ def receipts_page():
             )
 
     def apply_filters() -> None:
+        """Filtert die Belegliste anhand Suchtext und Kategorie-Auswahl."""
         nonlocal filtered, category_options
         term = (search_input.value or "").strip().lower()
         selected = category_select.value or "Alle Kategorien"
@@ -182,6 +184,7 @@ def receipts_page():
         render_cards()
 
     def render_cards() -> None:
+        """Rendert das Kartengrid neu, damit die Filterergebnisse sichtbar werden."""
         cards_container.clear()
         update_header()
 
@@ -274,6 +277,7 @@ def receipts_page():
 
 
     async def handle_delete_click(receipt_id: int) -> None:
+        """Löscht den ausgewählten Beleg, aktualisiert die UI und zeigt Feedback an."""
         nonlocal receipts, filtered
         try:
             await asyncio.to_thread(
@@ -295,6 +299,7 @@ def receipts_page():
 
 
     async def show_receipt_detail(receipt_id: int) -> None:
+        """Befüllt den Detaildialog zum gewünschten Beleg und öffnet ihn."""
         detail_dialog.open()
         detail_caption.set_text(f"Beleg #{receipt_id}")
         detail_status_badge.set_text("Lade ...")
@@ -361,6 +366,7 @@ def receipts_page():
             detail_info_label.classes("text-caption text-emerald-600")
 
     async def load_data() -> None:
+        """Lädt alle Belege vom Backend und setzt Filter sowie UI-Elemente zurück."""
         nonlocal receipts, filtered, category_options
         try:
             user_id = user.get("user_id") or None

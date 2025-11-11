@@ -30,6 +30,7 @@ def dashboard_page():
     legend_container = None
 
     def update_counts():
+        """Aktualisiert die Kennzahl mit der Anzahl Belege im aktuell gewählten Monat."""
         if not _count_label:
             return
         selected = get_selected_month()
@@ -45,6 +46,7 @@ def dashboard_page():
         _count_label.set_text(str(count))
 
     def update_category_chart():
+        """Erzeugt das Kreisdiagramm samt Legende für den selektierten Monat neu."""
         nonlocal category_chart, legend_container, chart_container
         try:
             if not category_chart or legend_container is None:
@@ -100,6 +102,7 @@ def dashboard_page():
             ui.notify(f'Diagramm-Fehler: {exc}', color='negative')
 
     async def load_receipts():
+        """Lädt die Belege aus der Datenbank und stößt alle abhängigen Aktualisierungen an."""
         nonlocal receipts
         try:
             user_id = user.get("user_id") or None
