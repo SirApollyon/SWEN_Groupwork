@@ -17,6 +17,8 @@ IMAGE_MIME_MAP = {
     "BMP": "image/bmp",
     "TIFF": "image/tiff",
     "WEBP": "image/webp",
+    "HEIF": "image/heif",
+    "HEIC": "image/heic",
 }
 
 STATUS_STYLE_MAP = {

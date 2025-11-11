@@ -207,6 +207,7 @@ The `/api/upload` endpoint expects `multipart/form-data` with fields `file` (bin
 - **Database connection failures**: verify that your IP is allowed to reach Azure SQL and that TLS / firewall settings permit the connection.
 - **Google GenAI errors**: double-check `GOOGLE_API_KEY`, project quotas, and the selected `GOOGLE_RECEIPT_MODEL`.
 - **Large uploads rejected**: files above 20 MB are blocked by the application (see `MAX_BYTES` in `app/services/receipt_upload_service.py`).
+- **HEIC camera photos supported**: iOS/Android camera captures are transcoded to JPEG on the server so they render in the browser and can be analyzed reliably.
 
 ---
 

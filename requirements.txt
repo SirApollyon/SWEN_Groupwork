@@ -16,5 +16,6 @@ python-multipart
 python-dotenv
 pymssql
 Pillow
+pillow-heif
 google-genai
 geopy
