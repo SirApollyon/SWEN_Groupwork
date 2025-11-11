@@ -14,7 +14,7 @@ from app.services.receipt_upload_service import process_receipt_upload
 from app.ui_theme import UPLOAD_CARD
 
 
-@ui.page('/upload', keep_alive=True)
+@ui.page('/upload', reconnect_timeout=120.0)
 def upload_page():
     """Zeigt die responsive Upload-Ansicht (inkl. Kamera/Desktop-Optionen)."""
     user = _ensure_authenticated()
