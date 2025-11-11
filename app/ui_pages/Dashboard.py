@@ -1,4 +1,14 @@
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime
+
 from nicegui import ui
+
+from app.db import list_receipts_overview
+from app.helpers.auth_helpers import _ensure_authenticated
+from app.helpers.receipt_helpers import _format_amount
+from app.ui_layout import get_selected_month, month_bar, nav
 
 @ui.page('/dashboard')
 def dashboard_page():
