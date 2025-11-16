@@ -25,7 +25,7 @@ def settings_page():
         stored_budget = str(stored_budget_raw) if stored_budget_raw else ''
 
     with ui.column().classes(
-        'items-center justify-start min-h-screen gap-6 q-pa-md bg-slate-50 pt-16 md:pt-0 transition-all z-0'
+        'items-center justify-start min-h-screen gap-6 q-pa-md'
     ):
         ui.label('Einstellungen').classes('text-h5')
         settings_card = ui.card().classes(

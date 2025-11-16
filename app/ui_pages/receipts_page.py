@@ -36,7 +36,7 @@ def receipts_page():
     category_options: list[str] = ["Alle Kategorien"]
 
     with ui.column().classes(
-        "w-full items-center min-h-screen gap-6 q-pa-xl bg-gradient-to-b from-blue-50 to-white pt-16 md:pt-0 transition-all z-0"
+        "w-full items-center min-h-screen gap-6 q-pa-xl"
     ):
         header_row = ui.row().classes("w-full max-w-6xl items-end justify-between")
         with header_row:
