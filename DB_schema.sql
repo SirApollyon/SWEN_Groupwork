@@ -32,6 +32,23 @@ BEGIN
 END
 GO
 
+-- USER SETTINGS (persönliche Präferenzen wie Budget)
+
+IF OBJECT_ID('app.user_settings') IS NULL
+BEGIN
+    CREATE TABLE app.user_settings (
+        user_id     INT PRIMARY KEY,
+        max_budget  DECIMAL(18,2) NULL,
+        updated_at  DATETIME2 NOT NULL CONSTRAINT DF_user_settings_updated_at DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT FK_user_settings_user
+            FOREIGN KEY (user_id) REFERENCES app.users(user_id)
+            ON DELETE CASCADE,
+        CONSTRAINT CK_user_settings_budget
+            CHECK (max_budget IS NULL OR max_budget >= 0)
+    );
+END
+GO
+
 -- ACCOUNTS
 
 IF OBJECT_ID('app.accounts') IS NULL

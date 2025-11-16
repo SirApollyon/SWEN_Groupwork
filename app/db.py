@@ -182,6 +182,68 @@ def authenticate_user(email: str, password: str) -> dict:
             }
 
 
+def get_user_settings(user_id: int) -> dict:
+    """
+    Lädt optionale Einstellungen wie das maximale Budget für einen Benutzer.
+
+    Args:
+        user_id: ID des Benutzers, dessen Einstellungen gelesen werden sollen.
+
+    Returns:
+        Dictionary mit einzelnen Settings (z.B. {'max_budget': 1200.0}).
+    """
+    if not user_id:
+        raise ValueError("Eine gültige Benutzer-ID ist erforderlich.")
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(
+                "SELECT max_budget FROM app.user_settings WHERE user_id=%s",
+                (user_id,),
+            )
+            row = cur.fetchone() or {}
+
+    max_budget = row.get("max_budget")
+    if isinstance(max_budget, Decimal):
+        max_budget = float(max_budget)
+
+    return {"max_budget": max_budget}
+
+
+def save_user_settings(user_id: int, *, max_budget: float | None = None) -> None:
+    """
+    Speichert (oder legt an) die persönlichen Einstellungen eines Benutzers.
+
+    Args:
+        user_id: ID des Benutzers.
+        max_budget: Optionales maximales Budget in CHF.
+    """
+    if not user_id:
+        raise ValueError("Eine gültige Benutzer-ID ist erforderlich.")
+
+    normalized_budget: float | None
+    if max_budget is None:
+        normalized_budget = None
+    else:
+        normalized_budget = round(float(max_budget), 2)
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                MERGE app.user_settings AS target
+                USING (SELECT %s AS user_id, %s AS max_budget) AS source
+                ON target.user_id = source.user_id
+                WHEN MATCHED THEN
+                    UPDATE SET max_budget = source.max_budget, updated_at = SYSUTCDATETIME()
+                WHEN NOT MATCHED THEN
+                    INSERT (user_id, max_budget) VALUES (source.user_id, source.max_budget);
+                """,
+                (user_id, normalized_budget),
+            )
+            conn.commit()
+
+
 def insert_receipt(user_id: int, content: bytes):
     """
     Speichert einen neuen Beleg (als Bild-Bytes) in der Datenbank.

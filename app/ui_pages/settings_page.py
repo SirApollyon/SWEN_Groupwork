@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from nicegui import ui
 
+from app.db import get_user_settings, save_user_settings
 from app.helpers.auth_helpers import _ensure_authenticated, _get_user_store
 from app.ui_layout import nav
 
@@ -16,9 +19,19 @@ def settings_page():
         return
     nav(user)
     store = _get_user_store(create=True) or {}
-    stored_first_name = store.get('settings_first_name') or ''
-    stored_last_name = store.get('settings_last_name') or ''
-    stored_budget_raw = store.get('settings_budget') or ''
+    stored_budget_value = store.get('settings_budget')
+    needs_db_budget = stored_budget_value in (None, '')
+    if needs_db_budget and user.get('user_id'):
+        try:
+            db_settings = get_user_settings(user['user_id'])
+            db_budget = db_settings.get('max_budget')
+            if db_budget is not None:
+                stored_budget_value = db_budget
+                store['settings_budget'] = db_budget
+        except Exception as exc:
+            ui.notify(f'Budget konnte nicht aus der Datenbank geladen werden: {exc}', color='warning')
+            stored_budget_value = stored_budget_value or ''
+    stored_budget_raw = stored_budget_value or ''
     if isinstance(stored_budget_raw, (int, float)):
         stored_budget = f'{stored_budget_raw:.2f}'
     else:
@@ -32,19 +45,10 @@ def settings_page():
             'w-full max-w-3xl bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70 p-6 gap-4'
         )
         with settings_card:
-            ui.label('Persoenliche Informationen & Budget').classes(
+            ui.label('Budgetverwaltung').classes(
                 'text-subtitle1 text-grey-8'
             )
             with ui.column().classes('w-full gap-4'):
-                with ui.row().classes('w-full gap-4 flex-wrap'):
-                    first_name_input = ui.input('Vorname').props('outlined dense').classes(
-                        'flex-1 min-w-[220px]'
-                    )
-                    first_name_input.value = stored_first_name
-                    last_name_input = ui.input('Nachname').props('outlined dense').classes(
-                        'flex-1 min-w-[220px]'
-                    )
-                    last_name_input.value = stored_last_name
                 budget_input = ui.input('Maximales Budget (CHF)').props(
                     'outlined dense type=number min=0 step=0.05'
                 ).classes('w-full')
@@ -52,10 +56,8 @@ def settings_page():
                     budget_input.value = stored_budget
                 status_label = ui.label('').classes('text-caption min-h-[20px] text-grey-7')
 
-                def save_settings() -> None:
-                    """Speichert die Formularwerte im User-Store und zeigt Feedback im Formular an."""
-                    first_name = (first_name_input.value or '').strip()
-                    last_name = (last_name_input.value or '').strip()
+                async def save_settings() -> None:
+                    """Speichert die Budget-Einstellung persistent."""
                     budget_raw = (budget_input.value or '').strip().replace(' ', '')
                     current_store = _get_user_store(create=True)
                     if current_store is None:
@@ -63,21 +65,42 @@ def settings_page():
                         status_label.style('color: #dc2626')
                         ui.notify('Speichern fehlgeschlagen', color='negative')
                         return
+                    budget_amount: float | None = None
                     if budget_raw:
                         normalized_budget_raw = budget_raw.replace(',', '.')
                         try:
-                            budget_amount = float(normalized_budget_raw)
+                            budget_amount = round(float(normalized_budget_raw), 2)
                         except ValueError:
                             status_label.set_text('Bitte gib einen gueltigen Betrag ein.')
                             status_label.style('color: #dc2626')
                             ui.notify('Ungueltiger Budgetbetrag', color='negative')
                             return
-                        current_store['settings_budget'] = round(budget_amount, 2)
+                        if budget_amount < 0:
+                            status_label.set_text('Budget muss positiv sein.')
+                            status_label.style('color: #dc2626')
+                            ui.notify('Budget darf nicht negativ sein', color='negative')
+                            return
+                    user_id = user.get('user_id')
+                    if user_id:
+                        try:
+                            await asyncio.to_thread(
+                                save_user_settings,
+                                user_id,
+                                max_budget=budget_amount,
+                            )
+                        except Exception as exc:
+                            status_label.set_text('Datenbank-Update fehlgeschlagen.')
+                            status_label.style('color: #dc2626')
+                            ui.notify(f'Einstellungen konnten nicht gespeichert werden: {exc}', color='negative')
+                            return
+                    if budget_amount is not None:
+                        current_store['settings_budget'] = budget_amount
                         budget_input.value = f'{budget_amount:.2f}'
                     else:
                         current_store['settings_budget'] = ''
-                    current_store['settings_first_name'] = first_name
-                    current_store['settings_last_name'] = last_name
+                        budget_input.value = ''
+                    current_store.pop('settings_first_name', None)
+                    current_store.pop('settings_last_name', None)
                     status_label.set_text('Aenderungen gespeichert.')
                     status_label.style('color: #16a34a')
                     ui.notify('Einstellungen gespeichert', color='positive')

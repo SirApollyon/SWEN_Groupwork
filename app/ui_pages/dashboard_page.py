@@ -7,8 +7,8 @@ from datetime import datetime
 
 from nicegui import ui
 
-from app.db import list_receipts_overview
-from app.helpers.auth_helpers import _ensure_authenticated
+from app.db import get_user_settings, list_receipts_overview
+from app.helpers.auth_helpers import _ensure_authenticated, _get_user_store
 from app.helpers.receipt_helpers import _format_amount
 from app.ui_layout import get_selected_month, month_bar, nav
 
@@ -28,6 +28,8 @@ def dashboard_page():
     category_chart = None
     chart_container = None
     legend_container = None
+    budget_label = None
+    budget_sync_running = False
 
     def update_counts():
         """Aktualisiert die Kennzahl mit der Anzahl Belege im aktuell gewählten Monat."""
@@ -101,6 +103,44 @@ def dashboard_page():
         except Exception as exc:
             ui.notify(f'Diagramm-Fehler: {exc}', color='negative')
 
+    def update_budget_display():
+        """Aktualisiert die Anzeige des maximalen Budgets aus dem User-Store."""
+        if not budget_label:
+            return
+        store = _get_user_store(create=False) or {}
+        budget_value = store.get('settings_budget')
+        if isinstance(budget_value, (int, float)):
+            budget_label.set_text(_format_amount(float(budget_value), 'CHF'))
+        elif budget_value:
+            budget_label.set_text(str(budget_value))
+        else:
+            budget_label.set_text('Kein Budget')
+
+    async def sync_user_budget():
+        """Lädt die Budget-Einstellung aus der DB und spiegelt sie im Store wider."""
+        nonlocal budget_sync_running
+        user_id = user.get("user_id")
+        if not user_id:
+            update_budget_display()
+            return
+        if budget_sync_running:
+            return
+        budget_sync_running = True
+        try:
+            settings = await asyncio.to_thread(get_user_settings, user_id)
+            value = settings.get('max_budget')
+        except Exception as exc:
+            ui.notify(f'Budget konnte nicht geladen werden: {exc}', color='warning')
+            return
+        finally:
+            budget_sync_running = False
+        store = _get_user_store(create=True) or {}
+        if value is None:
+            store['settings_budget'] = ''
+        else:
+            store['settings_budget'] = round(float(value), 2)
+        update_budget_display()
+
     async def load_receipts():
         """Lädt die Belege aus der Datenbank und stößt alle abhängigen Aktualisierungen an."""
         nonlocal receipts
@@ -138,6 +178,16 @@ def dashboard_page():
                     ui.label('Belege').classes('text-caption text-grey-6')
                     ui.timer(0.3, lambda: update_counts(), once=True)
 
+            budget_card = ui.card().classes(
+                'w-[340px] h-[180px] bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70 items-center justify-center'
+            )
+            with budget_card:
+                with ui.column().classes('items-center justify-center gap-2 q-pt-md'):
+                    ui.icon('account_balance_wallet').classes('text-emerald-600 bg-emerald-100 rounded-full q-pa-sm').style('font-size: 28px')
+                    budget_label = ui.label('Kein Budget').classes('text-h4 text-grey-9 text-center')
+                    ui.label('Max. Budget').classes('text-caption text-grey-6')
+                    ui.timer(0.2, update_budget_display, once=True)
+
             chart_card = ui.card().classes(
                 'w-[720px] min-h-[360px] bg-white/90 backdrop-blur rounded-2xl shadow-md border border-white/70'
             )
@@ -149,4 +199,6 @@ def dashboard_page():
                         category_chart = ui.echart({'series': []}).classes('w-[320px] h-[240px]')
                     legend_container = ui.column().classes('gap-2')
 
+    ui.timer(0.05, lambda: asyncio.create_task(sync_user_budget()), once=True)
+    ui.timer(20, lambda: asyncio.create_task(sync_user_budget()))
     ui.timer(0.1, load_receipts, once=True)

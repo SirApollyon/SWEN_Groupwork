@@ -5,7 +5,7 @@ from datetime import datetime
 
 from nicegui import ui
 
-from app.db import list_receipts_overview
+from app.db import get_user_settings, list_receipts_overview
 from app.helpers.auth_helpers import _ensure_authenticated, _get_user_store
 from app.helpers.receipt_helpers import _format_amount
 from app.ui_layout import get_selected_month, month_bar, nav
@@ -35,6 +35,7 @@ def dashboard_extended_page():
     legend_container = None
     income_expense_chart = None
     income_chart_container = None
+    budget_sync_running = False
 
     def match_month(r, selected):
         date_value = r.get('transaction_date') or r.get('upload_date')
@@ -168,6 +169,28 @@ def dashboard_extended_page():
                 by_month[key]['Expenses'] += amount
         return sorted(by_month.values(), key=lambda x: x['month'])
 
+    async def sync_user_budget():
+        """Lädt das max. Budget aus der Datenbank und aktualisiert den Store."""
+        nonlocal budget_sync_running
+        user_id = user.get("user_id")
+        if not user_id or budget_sync_running:
+            return
+        budget_sync_running = True
+        try:
+            settings = await asyncio.to_thread(get_user_settings, user_id)
+            value = settings.get('max_budget')
+        except Exception as exc:
+            ui.notify(f'Budget konnte nicht geladen werden: {exc}', color='warning')
+            return
+        finally:
+            budget_sync_running = False
+        store = _get_user_store(create=True) or {}
+        if value is None:
+            store['settings_budget'] = ''
+        else:
+            store['settings_budget'] = round(float(value), 2)
+        update_financial_metrics()
+
     async def load_receipts():
         nonlocal receipts, budget_data, income_data, monthly_summary
         try:
@@ -264,4 +287,6 @@ def dashboard_extended_page():
                 ui.timer(0.2, lambda: update_income_expense_chart(), once=True)
 
         # Initial data load
+        ui.timer(0.02, lambda: asyncio.create_task(sync_user_budget()), once=True)
+        ui.timer(20, lambda: asyncio.create_task(sync_user_budget()))
         ui.timer(0.05, lambda: asyncio.create_task(load_receipts()), once=True)
