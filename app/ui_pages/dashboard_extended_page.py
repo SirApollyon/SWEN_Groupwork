@@ -6,7 +6,7 @@ from datetime import datetime
 from nicegui import ui
 
 from app.db import list_receipts_overview
-from app.helpers.auth_helpers import _ensure_authenticated
+from app.helpers.auth_helpers import _ensure_authenticated, _get_user_store
 from app.helpers.receipt_helpers import _format_amount
 from app.ui_layout import get_selected_month, month_bar, nav
 
@@ -60,6 +60,18 @@ def dashboard_extended_page():
         if total_expense_label: total_expense_label.set_text(_format_amount(expenses, 'CHF'))
         if budget_status_label: budget_status_label.set_text('Unter Budget' if expenses <= budget else 'Über Budget')
         if savings_label: savings_label.set_text(_format_amount(savings, 'CHF'))
+        # Re-evaluate budget status using user settings when monthly budget is not set
+        store = _get_user_store(create=False) or {}
+        try:
+            user_budget = float(store.get('settings_budget') or 0)
+        except (TypeError, ValueError):
+            user_budget = 0.0
+        effective_budget = budget if (budget and budget > 0) else user_budget
+        if budget_status_label:
+            if effective_budget and effective_budget > 0:
+                budget_status_label.set_text('Unter Budget' if expenses <= effective_budget else 'Über Budget')
+            else:
+                budget_status_label.set_text('Kein Budget')
 
     def update_income_expense_chart():
         if not income_expense_chart or not monthly_summary:
