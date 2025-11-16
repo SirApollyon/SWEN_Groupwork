@@ -24,7 +24,8 @@ def dashboard_extended_page():
     budget_data: dict[str, float] = {}
     income_data: dict[str, float] = {}
 
-    COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#F97316', '#06B6D4', '#EF4444']
+    # Palette: blue, lilac/purple, grey tones
+    COLORS = ['#1E3A8A', '#3B82F6', '#60A5FA', '#8B5CF6', '#6D28D9', '#A78BFA', '#94A3B8']
     _count_label = None
     total_expense_label = None
     budget_status_label = None
@@ -72,8 +73,8 @@ def dashboard_extended_page():
             'xAxis': {'type': 'category', 'data': months},
             'yAxis': {'type': 'value'},
             'series': [
-                {'name': 'Einkommen', 'type': 'bar', 'data': income, 'itemStyle': {'color': '#10B981'}},
-                {'name': 'Ausgaben', 'type': 'bar', 'data': expenses, 'itemStyle': {'color': '#EF4444'}},
+                {'name': 'Einkommen', 'type': 'bar', 'data': income, 'itemStyle': {'color': '#94A3B8'}},
+                {'name': 'Ausgaben', 'type': 'bar', 'data': expenses, 'itemStyle': {'color': '#3B82F6'}},
             ]
         }
 
@@ -123,14 +124,40 @@ def dashboard_extended_page():
         except Exception as exc:
             ui.notify(f'Diagramm-Fehler: {exc}', color='negative')
 
+    def _compute_monthly_summary(rows: list[dict]) -> list[dict]:
+        """Aggregate income/expenses by month from receipt transactions."""
+        by_month: dict[str, dict] = {}
+        for r in rows:
+            date_value = r.get('transaction_date') or r.get('upload_date')
+            try:
+                d = datetime.fromisoformat(date_value) if date_value else None
+            except Exception:
+                d = None
+            if not d:
+                continue
+            key = f"{d.year}-{d.month:02}-01"
+            if key not in by_month:
+                by_month[key] = {
+                    'month': datetime(d.year, d.month, 1),
+                    'Income': 0.0,
+                    'Expenses': 0.0,
+                }
+            amount = float(r.get('amount') or 0)
+            ttype = (r.get('transaction_type') or '').lower()
+            if ttype == 'income':
+                by_month[key]['Income'] += amount
+            else:
+                # default treat as expense when unknown
+                by_month[key]['Expenses'] += amount
+        return sorted(by_month.values(), key=lambda x: x['month'])
+
     async def load_receipts():
         nonlocal receipts, budget_data, income_data, monthly_summary
         try:
             user_id = user.get("user_id") or None
             receipts = await asyncio.to_thread(list_receipts_overview, user_id)
-
-            # Assume SQLAlchemy logic already loaded these:
-            # budget_data = {...}, income_data = {...}, monthly_summary = [...]
+            # Derive monthly summary from loaded receipts
+            monthly_summary = _compute_monthly_summary(receipts)
 
         except Exception as exc:
             ui.notify(f'Belege konnten nicht geladen werden: {exc}', color='negative')
@@ -186,3 +213,36 @@ def dashboard_extended_page():
                     ui.icon('savings').classes('text-blue-600 bg-blue-100 rounded-full q-pa-sm').style('font-size: 28px')
                     savings_label = ui.label('-').classes('text-h4 text-grey-9')
                     ui.label('Ersparnis').classes('text-caption text-grey-6')
+
+        # Charts row: Category donut + legend, and Monthly Income vs Expenses
+        with ui.row().classes('w-full gap-4 q-px-md q-pb-xl flex-wrap items-stretch'):
+            with ui.card().classes('flex-1 min-w-[360px] bg-white/90 rounded-2xl shadow-md border border-white/70'):
+                with ui.column().classes('w-full gap-3 q-pa-md'):
+                    with ui.row().classes('items-center justify-between'):
+                        ui.label('Ausgaben nach Kategorie').classes('text-body1 font-medium')
+                        ui.label('aktueller Monat').classes('text-caption text-grey-6')
+                    with ui.row().classes('w-full gap-4 items-start'):
+                        chart_container = ui.column().classes('items-center justify-center')
+                        with ui.column().classes('gap-2 flex-1') as legend_container_ref:
+                            legend_container = legend_container_ref
+                ui.timer(0.1, lambda: update_category_chart(), once=True)
+
+            with ui.card().classes('flex-[1.2] min-w-[420px] bg-white/90 rounded-2xl shadow-md border border-white/70'):
+                with ui.column().classes('w-full gap-3 q-pa-md'):
+                    with ui.row().classes('items-center justify-between'):
+                        ui.label('Einkommen vs. Ausgaben (Monate)').classes('text-body1 font-medium')
+                        ui.label('Summen je Monat').classes('text-caption text-grey-6')
+                    income_expense_chart = ui.echart({
+                        'tooltip': {'trigger': 'axis'},
+                        'legend': {'data': ['Einkommen', 'Ausgaben']},
+                        'xAxis': {'type': 'category', 'data': []},
+                        'yAxis': {'type': 'value'},
+                        'series': [
+                            {'name': 'Einkommen', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#94A3B8'}},
+                            {'name': 'Ausgaben', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#3B82F6'}},
+                        ],
+                    }).classes('w-full h-[320px]')
+                ui.timer(0.2, lambda: update_income_expense_chart(), once=True)
+
+        # Initial data load
+        ui.timer(0.05, lambda: asyncio.create_task(load_receipts()), once=True)
