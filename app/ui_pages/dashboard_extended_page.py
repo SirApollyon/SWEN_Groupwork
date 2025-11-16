@@ -34,6 +34,7 @@ def dashboard_extended_page():
     chart_container = None
     legend_container = None
     income_expense_chart = None
+    income_chart_container = None
 
     def match_month(r, selected):
         date_value = r.get('transaction_date') or r.get('upload_date')
@@ -74,21 +75,25 @@ def dashboard_extended_page():
                 budget_status_label.set_text('Kein Budget')
 
     def update_income_expense_chart():
-        if not income_expense_chart or not monthly_summary:
+        nonlocal income_expense_chart, income_chart_container
+        if not monthly_summary or income_chart_container is None:
             return
         months = [row["month"].strftime("%Y-%m") for row in monthly_summary]
-        income = [row.get("Income", 0) for row in monthly_summary]
-        expenses = [row.get("Expenses", 0) for row in monthly_summary]
-        income_expense_chart.options = {
+        income_vals = [row.get("Income", 0) for row in monthly_summary]
+        expense_vals = [row.get("Expenses", 0) for row in monthly_summary]
+        opts = {
             'tooltip': {'trigger': 'axis'},
             'legend': {'data': ['Einkommen', 'Ausgaben']},
             'xAxis': {'type': 'category', 'data': months},
             'yAxis': {'type': 'value'},
             'series': [
-                {'name': 'Einkommen', 'type': 'bar', 'data': income, 'itemStyle': {'color': '#94A3B8'}},
-                {'name': 'Ausgaben', 'type': 'bar', 'data': expenses, 'itemStyle': {'color': '#3B82F6'}},
-            ]
+                {'name': 'Einkommen', 'type': 'bar', 'data': income_vals, 'itemStyle': {'color': '#94A3B8'}},
+                {'name': 'Ausgaben', 'type': 'bar', 'data': expense_vals, 'itemStyle': {'color': '#3B82F6'}},
+            ],
         }
+        income_chart_container.clear()
+        with income_chart_container:
+            income_expense_chart = ui.echart(opts).classes('w-full h-[320px]')
 
     def update_category_chart():
         nonlocal category_chart, legend_container, chart_container
@@ -244,16 +249,18 @@ def dashboard_extended_page():
                     with ui.row().classes('items-center justify-between'):
                         ui.label('Einkommen vs. Ausgaben (Monate)').classes('text-body1 font-medium')
                         ui.label('Summen je Monat').classes('text-caption text-grey-6')
-                    income_expense_chart = ui.echart({
-                        'tooltip': {'trigger': 'axis'},
-                        'legend': {'data': ['Einkommen', 'Ausgaben']},
-                        'xAxis': {'type': 'category', 'data': []},
-                        'yAxis': {'type': 'value'},
-                        'series': [
-                            {'name': 'Einkommen', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#94A3B8'}},
-                            {'name': 'Ausgaben', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#3B82F6'}},
-                        ],
-                    }).classes('w-full h-[320px]')
+                    income_chart_container = ui.column().classes('w-full')
+                    with income_chart_container:
+                        income_expense_chart = ui.echart({
+                            'tooltip': {'trigger': 'axis'},
+                            'legend': {'data': ['Einkommen', 'Ausgaben']},
+                            'xAxis': {'type': 'category', 'data': []},
+                            'yAxis': {'type': 'value'},
+                            'series': [
+                                {'name': 'Einkommen', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#94A3B8'}},
+                                {'name': 'Ausgaben', 'type': 'bar', 'data': [], 'itemStyle': {'color': '#3B82F6'}},
+                            ],
+                        }).classes('w-full h-[320px]')
                 ui.timer(0.2, lambda: update_income_expense_chart(), once=True)
 
         # Initial data load
