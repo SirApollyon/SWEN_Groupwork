@@ -58,6 +58,7 @@ def nav(user: dict):
             ui.separator().classes('q-my-sm')
 
             _side_nav_item('Dashboard', 'dashboard', '/dashboard', active=(p == '/dashboard'))
+            _side_nav_item('Dashboard+', 'insights', '/dashboard/extended', active=(p == '/dashboard/extended'))
             _side_nav_item('Belege', 'receipt_long', '/receipts', active=(p == '/receipts'))
             _side_nav_item('Hochladen', 'upload', '/upload', active=(p == '/upload'))
             _side_nav_item('Einstellungen', 'settings', '/settings', active=(p == '/settings'))

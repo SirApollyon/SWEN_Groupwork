@@ -10,8 +10,8 @@ from app.helpers.auth_helpers import _ensure_authenticated
 from app.helpers.receipt_helpers import _format_amount
 from app.ui_layout import get_selected_month, month_bar, nav
 
-@ui.page('/dashboard')
-def dashboard_page():
+@ui.page('/dashboard/extended')
+def dashboard_extended_page():
     user = _ensure_authenticated()
     if not user:
         return
