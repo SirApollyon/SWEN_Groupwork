@@ -19,7 +19,6 @@ def settings_page():
     stored_first_name = store.get('settings_first_name') or ''
     stored_last_name = store.get('settings_last_name') or ''
     stored_budget_raw = store.get('settings_budget') or ''
-    stored_iban = store.get('settings_iban') or ''
     if isinstance(stored_budget_raw, (int, float)):
         stored_budget = f'{stored_budget_raw:.2f}'
     else:
@@ -51,10 +50,6 @@ def settings_page():
                 ).classes('w-full')
                 if stored_budget:
                     budget_input.value = stored_budget
-                iban_input = ui.input('IBAN').props(
-                    'outlined dense placeholder="CH00 0000 0000 0000 0000 0"'
-                ).classes('w-full uppercase')
-                iban_input.value = stored_iban
                 status_label = ui.label('').classes('text-caption min-h-[20px] text-grey-7')
 
                 def save_settings() -> None:
@@ -62,7 +57,6 @@ def settings_page():
                     first_name = (first_name_input.value or '').strip()
                     last_name = (last_name_input.value or '').strip()
                     budget_raw = (budget_input.value or '').strip().replace(' ', '')
-                    iban_value = (iban_input.value or '').strip().replace(' ', '').upper()
                     current_store = _get_user_store(create=True)
                     if current_store is None:
                         status_label.set_text('Speichern derzeit nicht moeglich.')
@@ -84,7 +78,6 @@ def settings_page():
                         current_store['settings_budget'] = ''
                     current_store['settings_first_name'] = first_name
                     current_store['settings_last_name'] = last_name
-                    current_store['settings_iban'] = iban_value
                     status_label.set_text('Aenderungen gespeichert.')
                     status_label.style('color: #16a34a')
                     ui.notify('Einstellungen gespeichert', color='positive')
