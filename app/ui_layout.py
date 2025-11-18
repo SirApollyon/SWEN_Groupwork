@@ -49,11 +49,6 @@ def nav(user: dict):
                 with ui.column().classes('gap-0'):
                     ui.label('Smart Expense Tracker').classes('text-subtitle1 font-semibold')
                     ui.label('Ihre persönliche Finanzübersicht').classes('text-caption text-grey-6')
-                with ui.row().classes(
-                    'items-center gap-1 px-2 py-1 rounded-full bg-grey-1 text-grey-7 border'
-                ):
-                    ui.icon('language').classes('text-grey-6')
-                    ui.label('DE').classes('text-caption')
 
             ui.separator().classes('q-my-sm')
 
