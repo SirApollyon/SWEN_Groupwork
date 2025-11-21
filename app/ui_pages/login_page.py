@@ -19,7 +19,7 @@ def login_page():
     """Rendert die bestehende Login-Oberfläche – Logik bleibt unverändert, nur ausgelagert."""
 
     if _get_logged_in_user():
-        ui.timer(0.1, lambda: ui.navigate.to('/dashboard'), once=True)
+        ui.timer(0.1, lambda: ui.navigate.to('/dashboard/extended'), once=True)
         with ui.column().classes(
             'items-center justify-center h-screen gap-3 text-white'
         ):
@@ -51,7 +51,7 @@ def login_page():
         _set_logged_in_user(user_data)
         welcome = user_data.get('name') or user_data.get('email')
         ui.notify(f'Willkommen zurück, {welcome}!', color='positive')
-        ui.navigate.to('/dashboard')
+        ui.navigate.to('/dashboard/extended')
 
     async def handle_signup() -> None:
         """Legt ein neues Konto in Azure SQL an."""
@@ -85,13 +85,13 @@ def login_page():
         _set_logged_in_user(user_data)
         ui.notify('Konto erfolgreich erstellt!', color='positive')
         signup_dialog.close()
-        ui.navigate.to('/dashboard')
+        ui.navigate.to('/dashboard/extended')
 
     def skip_login() -> None:
         """Lädt das Demo-Konto ohne Anmeldung."""
         _set_guest_user()
         ui.notify('Demo-Konto geladen (Benutzer 1).', color='info')
-        ui.navigate.to('/dashboard')
+        ui.navigate.to('/dashboard/extended')
 
     signup_dialog = ui.dialog()
     with signup_dialog, ui.card().classes(

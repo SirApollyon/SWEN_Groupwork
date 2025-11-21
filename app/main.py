@@ -106,7 +106,7 @@ set_global_styles()
 
 # Durch das Importieren der Page-Module werden die @ui.page-Routen registriert.
 from app.ui_pages import (  # noqa: F401
-    dashboard_page,
+    dashboard_extended_page,
     home_page,
     login_page,
     receipts_page,
