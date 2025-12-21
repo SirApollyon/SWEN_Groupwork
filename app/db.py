@@ -539,6 +539,30 @@ def delete_receipt(receipt_id: int, *, user_id: int | None = None) -> None:
             conn.commit()
 
 
+def delete_transactions_for_receipt(receipt_id: int) -> int:
+    """
+    L?scht Transaktionen, die an einen Beleg gebunden sind.
+
+    Args:
+        receipt_id: Die Beleg-ID, deren Transaktionen entfernt werden sollen.
+
+    Returns:
+        Anzahl gel?schter Transaktionen.
+    """
+    if not receipt_id:
+        raise ValueError("Es muss eine g?ltige Receipt-ID angegeben werden.")
+
+    with pymssql.connect(**CONNECT_KW) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM app.transactions WHERE receipt_id=%s",
+                (receipt_id,),
+            )
+            deleted = cur.rowcount or 0
+            conn.commit()
+            return deleted
+
+
 def load_receipt_image(receipt_id: int) -> dict:
     """
     Lädt das Bild und die zugehörigen Metadaten für eine bestimmte Beleg-ID.
