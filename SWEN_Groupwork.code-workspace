@@ -4,5 +4,16 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.testing.cwd": "${workspaceFolder}",
+		"python.testing.unittestArgs": [
+			"-v",
+			"-s",
+			"${workspaceFolder}/tests",
+			"-p",
+			"test_*.py"
+		],
+		"python.testing.pytestEnabled": false,
+		"python.testing.unittestEnabled": true
+	}
 }
