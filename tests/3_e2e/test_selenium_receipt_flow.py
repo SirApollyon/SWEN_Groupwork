@@ -1,3 +1,5 @@
+"""E2E-Selenium-Test fuer den Beleg-Upload- und Analyse-Workflow."""
+
 from __future__ import annotations
 
 import os
@@ -15,10 +17,15 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from app.db import delete_receipt, delete_transactions_for_receipt, list_receipts_overview
+from app.db import (
+    delete_receipt,
+    delete_transactions_for_receipt,
+    list_receipts_overview,
+)
 
 
 def _http_ready(url: str) -> bool:
+    """Prueft, ob der Endpunkt erreichbar ist und kein 5xx zurueckkommt."""
     try:
         with urlopen(url, timeout=2) as response:
             return response.status < 500
@@ -27,6 +34,7 @@ def _http_ready(url: str) -> bool:
 
 
 def _wait_for_http(url: str, timeout_seconds: int) -> None:
+    """Pollt den Endpunkt bis er erreichbar ist oder das Timeout greift."""
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
         if _http_ready(url):
@@ -36,6 +44,7 @@ def _wait_for_http(url: str, timeout_seconds: int) -> None:
 
 
 def _start_server(repo_root: Path, base_url: str) -> subprocess.Popen:
+    """Startet den lokalen Uvicorn-Server und gibt den Prozess zurueck."""
     parsed = urlparse(base_url)
     host = parsed.hostname or "127.0.0.1"
     port = parsed.port or 8000
@@ -57,6 +66,7 @@ def _start_server(repo_root: Path, base_url: str) -> subprocess.Popen:
 
 
 def _build_driver() -> webdriver.Chrome:
+    """Baut eine konfigurierte Chrome-Instanz fuer die E2E-Tests."""
     options = Options()
     if os.getenv("E2E_HEADLESS", "1") != "0":
         options.add_argument("--headless")
@@ -71,8 +81,11 @@ def _build_driver() -> webdriver.Chrome:
 
 
 class TestReceiptFlow(unittest.TestCase):
+    """Deckt den Demo-Login, Upload und Analyse-Flow ab."""
+
     @classmethod
     def setUpClass(cls) -> None:
+        """Startet optional den Server und wartet auf die Login-Seite."""
         cls.repo_root = Path(__file__).resolve().parents[2]
         cls.base_url = os.getenv("E2E_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
         cls.server_timeout = int(os.getenv("E2E_SERVER_TIMEOUT", "30"))
@@ -80,12 +93,14 @@ class TestReceiptFlow(unittest.TestCase):
 
         start_server = os.getenv("E2E_START_SERVER", "1") != "0"
         login_url = f"{cls.base_url}/login"
+        # Server nur starten, wenn kein externer Endpunkt laeuft.
         if start_server and not _http_ready(login_url):
             cls.server_process = _start_server(cls.repo_root, cls.base_url)
         _wait_for_http(login_url, cls.server_timeout)
 
     @classmethod
     def tearDownClass(cls) -> None:
+        """Faehrt einen gestarteten Serverprozess sauber herunter."""
         if cls.server_process:
             cls.server_process.terminate()
             try:
@@ -94,15 +109,18 @@ class TestReceiptFlow(unittest.TestCase):
                 cls.server_process.kill()
 
     def setUp(self) -> None:
+        """Initialisiert WebDriver und Wait-Helfer pro Test."""
         self.driver = _build_driver()
         self.driver.set_page_load_timeout(60)
         timeout = int(os.getenv("E2E_TIMEOUT", "240"))
         self.wait = WebDriverWait(self.driver, timeout)
 
     def tearDown(self) -> None:
+        """Schliesst den Browser nach jedem Testlauf."""
         self.driver.quit()
 
     def _find_file_input(self) -> webdriver.remote.webelement.WebElement:
+        """Findet ein sichtbares File-Input und faellt sonst auf das erste zurueck."""
         inputs = self.driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         for element in inputs:
             if element.is_displayed():
@@ -112,6 +130,7 @@ class TestReceiptFlow(unittest.TestCase):
         raise AssertionError("No file input found on upload page.")
 
     def _list_receipt_ids(self, user_id: int) -> set[int]:
+        """Liest alle Receipt-IDs fuer das Aufraeumen aus der DB."""
         receipts = list_receipts_overview(user_id)
         return {
             receipt["receipt_id"]
@@ -120,6 +139,7 @@ class TestReceiptFlow(unittest.TestCase):
         }
 
     def _cleanup_new_receipts(self, baseline_ids: set[int], user_id: int) -> None:
+        """Loescht neu angelegte Receipts inkl. Transaktionen."""
         latest_ids = self._list_receipt_ids(user_id)
         new_ids = sorted(latest_ids - baseline_ids, reverse=True)
         for receipt_id in new_ids:
@@ -127,9 +147,10 @@ class TestReceiptFlow(unittest.TestCase):
             delete_receipt(receipt_id, user_id=user_id)
 
     def test_demo_upload_analyze_flow(self) -> None:
+        """E2E-Szenario: Demo-Login, Upload, Analyse und Anzeige pruefen."""
         receipt_path = self.repo_root / "tests" / "Testbeleg.jpeg"
         self.assertTrue(receipt_path.exists(), "Fixture missing: tests/Testbeleg.jpeg")
-        user_id = 1
+        user_id = 1  # Demo-User-ID.
         baseline_ids = self._list_receipt_ids(user_id)
         self.addCleanup(self._cleanup_new_receipts, baseline_ids, user_id)
 

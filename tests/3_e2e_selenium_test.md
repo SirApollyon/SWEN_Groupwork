@@ -21,20 +21,20 @@ Dieses Dokument beschreibt den End-to-End Test für den Demo-Login, den Upload, d
 ## Ausführung
 ### Standard (Test startet Server selbst)
 ```powershell
-python "tests/3 e2e/test_selenium_receipt_flow.py"
+python "tests/3_e2e/test_selenium_receipt_flow.py"
 ```
 
 ### Wenn der Server bereits laeuft
 ```powershell
 $env:E2E_START_SERVER = "0"
 $env:E2E_BASE_URL = "http://127.0.0.1:8000"
-python "tests/3 e2e/test_selenium_receipt_flow.py"
+python "tests/3_e2e/test_selenium_receipt_flow.py"
 ```
 
 ### Sichtbarer Browser
 ```powershell
 $env:E2E_HEADLESS = "0"
-python "tests/3 e2e/test_selenium_receipt_flow.py"
+python "tests/3_e2e/test_selenium_receipt_flow.py"
 ```
 
 ## Konfiguration (Environment Variablen)
