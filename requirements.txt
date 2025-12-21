@@ -19,3 +19,4 @@ Pillow
 pillow-heif
 google-genai
 geopy
+pytest
