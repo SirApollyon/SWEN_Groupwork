@@ -51,6 +51,8 @@ def _generate_salt() -> str:
 
 def _hash_password(password: str, salt: str) -> str:
     """Berechnet einen Hash aus Passwort und Salz per PBKDF2."""
+    if not password.isascii():
+        raise ValueError("Passwort darf nur ASCII-Zeichen enthalten.")
     digest = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
