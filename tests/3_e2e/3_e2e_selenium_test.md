@@ -24,7 +24,7 @@ Dieses Dokument beschreibt den End-to-End Test für den Demo-Login, den Upload, d
 python "tests/3_e2e/test_selenium_receipt_flow.py"
 ```
 
-### Wenn der Server bereits laeuft
+### Wenn der Server bereits läuft
 ```powershell
 $env:E2E_START_SERVER = "0"
 $env:E2E_BASE_URL = "http://127.0.0.1:8000"
