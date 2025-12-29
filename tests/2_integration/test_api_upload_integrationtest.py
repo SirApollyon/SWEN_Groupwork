@@ -1,10 +1,9 @@
 import sys
-from io import BytesIO
+import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
-from PIL import Image
 
 # Allow running from any working directory
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,50 +21,58 @@ def _load_fixture_bytes() -> bytes:
         return fh.read()
 
 
-@pytest.mark.integration
-def test_api_upload_stores_fixture_and_triggers_analysis(monkeypatch):
-    recorded: dict = {}  # capture what our stubs receive
+class ApiUploadIntegrationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = TestClient(app)
 
-    def fake_normalize(data: bytes):
-        # In real life we would resize/convert; here we keep bytes for easy asserts
-        recorded["normalized"] = data
-        return data, "image/jpeg"
+    def test_api_upload_stores_fixture_and_triggers_analysis(self) -> None:
+        recorded: dict = {}  # capture what our stubs receive
 
-    def fake_insert_receipt(user_id: int, content: bytes):
-        recorded["insert_user"] = user_id
-        recorded["insert_bytes"] = content
-        return {
-            "receipt_id": 321,
-            "upload_date": "2024-01-01T00:00:00Z",
-            "status_id": 1,
-        }
+        def fake_normalize(data: bytes):
+            recorded["normalized"] = data
+            return data, "image/jpeg"
 
-    async def fake_analyze(receipt_id: int, user_id: int | None = None):
-        recorded["analyze_args"] = (receipt_id, user_id)
-        return {"ok": True, "total_amount": 12.34}
+        def fake_insert_receipt(user_id: int, content: bytes):
+            recorded["insert_user"] = user_id
+            recorded["insert_bytes"] = content
+            return {
+                "receipt_id": 321,
+                "upload_date": "2024-01-01T00:00:00Z",
+                "status_id": 1,
+            }
 
-    monkeypatch.setattr(upload_service, "normalize_upload_image", fake_normalize)
-    monkeypatch.setattr(upload_service, "insert_receipt", fake_insert_receipt)
-    monkeypatch.setattr(main, "analyze_receipt", fake_analyze)
+        async def fake_analyze(receipt_id: int, user_id: int | None = None):
+            recorded["analyze_args"] = (receipt_id, user_id)
+            return {"ok": True, "total_amount": 12.34}
 
-    client = TestClient(app)
-    image_bytes = _load_fixture_bytes()  # camera-like JPEG fixture
+        image_bytes = _load_fixture_bytes()  # camera-like JPEG fixture
 
-    resp = client.post(
-        "/api/upload",
-        data={"user_id": "1"},
-        files={"file": ("Testbeleg.jpeg", image_bytes, "image/jpeg")},
-    )
+        with patch.object(
+            upload_service, "normalize_upload_image", side_effect=fake_normalize
+        ), patch.object(
+            upload_service, "insert_receipt", side_effect=fake_insert_receipt
+        ), patch.object(
+            main, "analyze_receipt", side_effect=fake_analyze
+        ):
+            resp = self.client.post(
+                "/api/upload",
+                data={"user_id": "1"},
+                files={"file": ("Testbeleg.jpeg", image_bytes, "image/jpeg")},
+            )
 
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["receipt_id"] == 321
-    assert body["filename"] == "Testbeleg.jpeg"
-    assert body["size_bytes"] == len(image_bytes)
-    assert body["analysis"]["ok"] is True
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["receipt_id"], 321)
+        self.assertEqual(body["filename"], "Testbeleg.jpeg")
+        self.assertEqual(body["size_bytes"], len(image_bytes))
+        self.assertTrue(body["analysis"]["ok"])
 
-    # verify pipeline calls in correct order/shape
-    assert recorded["insert_user"] == 1
-    assert recorded["insert_bytes"] == image_bytes
-    assert recorded["normalized"] == image_bytes
-    assert recorded["analyze_args"] == (321, 1)
+        # verify pipeline calls in correct order/shape
+        self.assertEqual(recorded["insert_user"], 1)
+        self.assertEqual(recorded["insert_bytes"], image_bytes)
+        self.assertEqual(recorded["normalized"], image_bytes)
+        self.assertEqual(recorded["analyze_args"], (321, 1))
+
+
+if __name__ == "__main__":
+    unittest.main()
