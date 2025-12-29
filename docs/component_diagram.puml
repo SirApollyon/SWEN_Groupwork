@@ -1,0 +1,40 @@
+@startuml
+title Smart Expense Tracker – UML-Komponentendiagramm
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam wrapWidth 240
+skinparam maxMessageSize 160
+
+actor "Browser / Mobile\nClient" as Browser
+actor "REST Client" as RestClient
+
+node "Smart Expense Tracker Backend\n(FastAPI + NiceGUI)\napp/main.py" as Backend {
+  component "NiceGUI Frontend\n(app.ui_pages,\napp/ui_layout.py,\napp/ui_theme.py)" as Frontend
+  component "FastAPI API Layer\n(app/main.py)" as ApiLayer
+  component "Auth Helpers\n(app/helpers/auth_helpers.py)" as AuthHelpers
+  component "Receipt Upload Service\n(app/services/receipt_upload_service.py)" as UploadService
+  component "Receipt Analyzer\n(app/receipt_analysis.py)" as Analyzer
+  component "DB Helper Layer\n(app/db.py)" as DbHelpers
+}
+
+component "NiceGUI Storage\n(Browser Storage)" as Storage
+database "Azure SQL DB" as AzureDB
+component "Google GenAI API" as GenAI
+component "Geocoder\n(geopy / Nominatim)" as Geocoder
+
+Browser --> Frontend : HTTPS (NiceGUI)
+Frontend --> ApiLayer : interne HTTP/WebSocket Calls
+Frontend --> AuthHelpers : Benutzerkontext
+AuthHelpers --> Storage : Session lesen/schreiben
+
+RestClient --> ApiLayer : REST/JSON
+ApiLayer --> UploadService : Receipt speichern
+UploadService --> DbHelpers : CRUD
+ApiLayer --> Analyzer : Analyse triggern
+Analyzer --> DbHelpers : Bild laden,\nResultate schreiben
+DbHelpers --> AzureDB : pyodbc / SQL
+
+Analyzer --> GenAI : Extraktion
+Analyzer --> Geocoder : optionale\nAnreicherung
+@enduml
