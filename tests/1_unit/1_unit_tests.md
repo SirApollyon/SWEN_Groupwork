@@ -5,17 +5,17 @@ Dieses Dokument beschreibt die Unit-Tests fuer das Passwort-Hashing und das Pars
 
 ## Test 1: test_db_hash_unittest
 ### Ziel
-Validiert das deterministische Hashing mit Salt sowie Fehlerfaelle bei ungueltigen Eingaben.
+Validiert das deterministische Hashing mit Salt sowie Fehlerfälle bei ungültigen Eingaben.
 
 ### Szenario (Testfaelle)
 1) Gleiche Eingabe erzeugt erwarteten Hash-String.
-2) Unterschiedliche Salts erzeugen unterschiedliche Hashes (Laenge 64 Zeichen).
-3) Ungueltiger Salt (kein Hex) loest ValueError aus.
-4) Nicht-ASCII im Passwort loest ValueError aus (mehrere Beispielstrings).
+2) Unterschiedliche Salts erzeugen unterschiedliche Hashes (Länge 64 Zeichen).
+3) Ungültiger Salt (kein Hex) löst ValueError aus.
+4) Nicht-ASCII im Passwort löst ValueError aus (mehrere Beispielstrings).
 
 ### Voraussetzungen
 - Python Umgebung aktiv.
-- Keine externe Abhaengigkeit noetig (reine Unit-Tests).
+- Keine externe Abhängigkeit nötig (reine Unit-Tests).
 
 ### Ausfuehrung
 ```powershell
@@ -29,7 +29,7 @@ Stellt sicher, dass JSON-Antworten korrekt geparst werden, inklusive Markdown-Co
 ### Szenario (Testfaelle)
 1) Reiner JSON-Text wird korrekt geparst.
 2) JSON im Markdown-Codeblock wird korrekt erkannt.
-3) Ungueltiger Text loest ValueError aus.
+3) Ungueltiger Text löst ValueError aus.
 
 ### Voraussetzungen
 - Python Umgebung aktiv.
@@ -41,6 +41,6 @@ python -m unittest tests/1_unit/test_receipt_analysis_parse_response_unittest.py
 
 ## Troubleshooting
 - Fehler bei ValueError-Tests:
-  - Pruefe, ob die Eingabevalidierung in `app.db._hash_password` bzw. `app.receipt_analysis.ReceiptAnalyzer._parse_response` angepasst wurde.
+  - Prüfe, ob die Eingabevalidierung in `app.db._hash_password` bzw. `app.receipt_analysis.ReceiptAnalyzer._parse_response` angepasst wurde.
 - Erwarteter Hash weicht ab:
-  - Pruefe, ob Hash-Algorithmus oder Salt-Handling geaendert wurde.
+  - Prüfe, ob Hash-Algorithmus oder Salt-Handling geändert wurde.
